@@ -297,7 +297,57 @@ export default function App() {
                   ))}
                 </div>
               </div>
+              
+                  {/* --- INIZIO STRATEGIA E COMPETITOR (INCOLLARE SOTTO I PARTNER) --- */}
+              
+              {/* ACTION PLAN */}
+              <div className="mt-8">
+                <h3 className="text-lg font-black tracking-tight uppercase mb-4 flex items-center gap-2 text-white">
+                  <Target className="text-blue-500" size={20} /> GTM Strategy & Action Plan
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 hover:border-blue-500/30 transition-all">
+                    <span className="text-blue-500 font-black text-xs uppercase tracking-widest flex items-center gap-2 mb-2">Phase 1</span>
+                    <p className="text-sm font-medium text-slate-300">{report.action_plan?.phase_1}</p>
+                  </div>
+                  <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 hover:border-blue-500/30 transition-all">
+                    <span className="text-blue-500 font-black text-xs uppercase tracking-widest flex items-center gap-2 mb-2">Phase 2</span>
+                    <p className="text-sm font-medium text-slate-300">{report.action_plan?.phase_2}</p>
+                  </div>
+                  <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 hover:border-blue-500/30 transition-all">
+                    <span className="text-blue-500 font-black text-xs uppercase tracking-widest flex items-center gap-2 mb-2">Phase 3</span>
+                    <p className="text-sm font-medium text-slate-300">{report.action_plan?.phase_3}</p>
+                  </div>
+                </div>
+              </div>
 
+              <div className="mt-8">
+                <h3 className="text-lg font-black tracking-tight uppercase mb-4 flex items-center gap-2 text-white">
+                  <ShieldAlert className="text-red-500" size={20} /> Competitor Intelligence
+                </h3>
+                <div className="space-y-4">
+                  {report.competitor_intelligence?.map((comp, idx) => (
+                    <div key={idx} className="bg-[#111827] border border-slate-800 rounded-3xl p-6 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center hover:border-red-500/30 transition-all">
+                      <div>
+                        <h4 className="font-bold text-white text-lg flex items-center gap-2">
+                          {comp.company_name} 
+                          <span className="text-[10px] font-black bg-slate-800 text-slate-400 px-2 py-1 rounded-md uppercase">{comp.country}</span>
+                        </h4>
+                        <p className="text-sm text-slate-400 mt-2">{comp.what_they_sell}</p>
+                      </div>
+                      <div className="text-left md:text-right shrink-0">
+                        <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg mb-2 ${
+                          comp.threat_level?.toLowerCase().includes('high') ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                        }`}>
+                          {comp.threat_level} Threat
+                        </span>
+                        <p className="text-xs text-slate-500"><strong className="text-slate-300">Weakness:</strong> {comp.weakness}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
             </div>
           )}
         </div>
