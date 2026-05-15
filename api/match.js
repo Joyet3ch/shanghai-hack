@@ -1,21 +1,33 @@
+import { createClient } from '@supabase/supabase-js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-  const { 
-    company_name, 
-    product_description, 
-    business_model, 
-    target_market, 
-    sector, 
-    company_stage, 
-    biggest_concern 
+  const {
+    company_name,
+    product_description,
+    business_model,
+    target_market,
+    sector,
+    company_stage,
+    biggest_concern
   } = req.body;
 
+  let vettedPartners = [];
+  try {
+    const supabase = createClient(
+      process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY
+    );
+    const { data } = await supabase.from('partners').select('*');
+    if (data) vettedPartners = data;
+  } catch (_) {}
+
   const userPrompt = `
-    Analyze the following Chinese startup and generate a 
+    Analyze the following Chinese startup and generate a
     complete Western Market Entry Intelligence Report.
-    
-    You are a GTM Strategist. 
+
+    You are a GTM Strategist.
     INTERNAL DATABASE PARTNERS (PRIORITIZE THESE): ${JSON.stringify(vettedPartners)}.
     
     If these internal partners match the industry, list them first and set "is_verified": true. 
@@ -78,7 +90,10 @@ export default async function handler(req, res) {
       })
     });
 
-    if (!response.ok) throw new Error('Orbit API Error');
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Orbit API Error ${response.status}: ${errText}`);
+    }
 
     const data = await response.json();
     let rawContent = data.choices[0].message.content.trim();
