@@ -14,6 +14,12 @@ export default async function handler(req, res) {
   const userPrompt = `
     Analyze the following Chinese startup and generate a 
     complete Western Market Entry Intelligence Report.
+    
+    You are a GTM Strategist. 
+    INTERNAL DATABASE PARTNERS (PRIORITIZE THESE): ${JSON.stringify(vettedPartners)}.
+    
+    If these internal partners match the industry, list them first and set "is_verified": true. 
+    Then use web search to find more companies to complete a report of 5 total partners. For web-found partners, set "is_verified": false.
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     COMPANY PROFILE
@@ -27,77 +33,28 @@ export default async function handler(req, res) {
     Biggest Concern:   ${biggest_concern}
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    Using web search to find real, current companies and 
-    market data, generate the following 4 sections. 
-    Return your response as a single valid JSON object 
-    with no additional text, no markdown code blocks, 
-    and no preamble.
-
+    Return a single valid JSON object. SCHEMA:
     {
-      "company_summary": {
-        "name": "string",
-        "one_line_pitch": "string",
-        "market_readiness_score": number,
-        "market_readiness_label": "string",
-        "critical_insight": "string"
-      },
+      "company_summary": { "name": "string", "one_line_pitch": "string", "market_readiness_score": number, "market_readiness_label": "string", "critical_insight": "string" },
       "icp_matches": [
         {
           "rank": number,
           "company_name": "string",
+          "is_verified": boolean,
+          "website": "string",
           "country": "string",
           "sector": "string",
           "company_size": "string",
           "why_they_match": "string",
           "decision_maker_title": "string",
           "buying_trigger": "string",
-          "scores": {
-            "product_fit": number,
-            "market_readiness": number,
-            "strategic_value": number,
-            "accessibility": number,
-            "overall": number
-          },
+          "scores": { "product_fit": number, "market_readiness": number, "strategic_value": number, "accessibility": number, "overall": number },
           "first_move": "string"
         }
       ],
-      "competitor_intelligence": [
-        {
-          "rank": number,
-          "company_name": "string",
-          "country": "string",
-          "what_they_sell": "string",
-          "who_they_target": "string",
-          "positioning": "string",
-          "pricing_signal": "string",
-          "weakness": "string",
-          "threat_level": "string"
-        }
-      ],
-      "action_plan": {
-        "market_entry_timeline": "string",
-        "weeks": [
-          {
-            "period": "string",
-            "theme": "string",
-            "actions": ["string"],
-            "milestone": "string"
-          }
-        ],
-        "first_action_tomorrow": "string"
-      },
-      "risk_assessment": [
-        {
-          "rank": number,
-          "risk_title": "string",
-          "risk_type": "string",
-          "severity": "string",
-          "description": "string",
-          "probability": "string",
-          "mitigation": "string",
-          "cost_of_ignoring": "string"
-        }
-      ]
+      "competitor_intelligence": [...],
+      "action_plan": {...},
+      "risk_assessment": [...]
     }
   `;
 
