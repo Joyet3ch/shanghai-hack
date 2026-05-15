@@ -67,6 +67,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
+      if (!response.ok) throw new Error(`API error ${response.status}`);
       const data = await response.json();
       setMatches(data);
       toast.success('Hybrid Intelligence Report Ready');
