@@ -3,7 +3,7 @@ import { toast, Toaster } from 'sonner';
 import { 
   Building2, Globe2, Briefcase, Cpu, CheckCircle2, 
   ArrowRight, Loader2, Mail, LayoutDashboard, ChevronRight,
-  TrendingUp, Target, ShieldAlert
+  TrendingUp, Target, ShieldAlert, LogIn, LogOut // <-- Aggiunte queste due
 } from 'lucide-react';
 import RegisterPartner from './components/RegisterPartner'; // Assicurati che il file si chiami così e sia nella stessa cartella
 
@@ -97,17 +97,40 @@ export default function App() {
       {/* NAVBAR */}
       <nav className="border-b border-slate-800 bg-[#0B0F19]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          
+          {/* Logo */}
           <div className="flex items-center gap-3">
             <LayoutDashboard className="text-blue-500" size={28} />
             <h1 className="text-2xl font-black italic tracking-tighter uppercase">Bridge<span className="text-blue-500">Match</span></h1>
           </div>
-          <button 
-            onClick={() => setIsRegisterOpen(true)}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all border border-slate-700"
-          >
-            <CheckCircle2 size={16} className="text-blue-400" />
-            BECOME A PARTNER
-          </button>
+
+          {/* Bottoni Destra */}
+          <div className="flex items-center gap-4">
+            
+            {/* TASTI LOGIN / LOGOUT */}
+            {/* Nota: Sostituisci 'true' con la tua variabile di stato utente (es. user ? ... : ...) */}
+            <div className="flex items-center gap-4 border-r border-slate-800 pr-4 mr-2">
+              <button className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white transition-colors">
+                <LogIn size={16} />
+                LOG IN
+              </button>
+              {/* Se vuoi mostrare Log Out invece di Log In, usa questo:
+              <button className="flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-red-400 transition-colors">
+                <LogOut size={16} />
+                LOG OUT
+              </button>
+              */}
+            </div>
+
+            <button 
+              onClick={() => setIsRegisterOpen(true)}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all border border-slate-700"
+            >
+              <CheckCircle2 size={16} className="text-blue-400" />
+              BECOME A PARTNER
+            </button>
+            
+          </div>
         </div>
       </nav>
 
@@ -297,7 +320,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              
+
                   {/* --- INIZIO STRATEGIA E COMPETITOR (INCOLLARE SOTTO I PARTNER) --- */}
               
               {/* ACTION PLAN */}
