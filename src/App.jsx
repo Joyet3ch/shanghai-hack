@@ -33,12 +33,8 @@ const SECTORS = [
   'Consumer Tech & Cross-Border DTC',
 ];
 
-const MATCH_API_URL =
-  import.meta.env.VITE_MATCH_API_URL ||
-  'https://trgrzufskkbkazprltub.supabase.co/functions/v1/match';
-const EMAIL_API_URL =
-  import.meta.env.VITE_EMAIL_API_URL ||
-  'https://trgrzufskkbkazprltub.supabase.co/functions/v1/email';
+const MATCH_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/match';
+const EMAIL_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/email';
 
 const NAV_ITEMS = [
   { id: 'matches', label: 'Partners', icon: Target },
@@ -223,37 +219,22 @@ const normalizeReportForUi = (report) => {
 };
 
 const fetchReport = async (formData) => {
-  let primaryError;
-
-  try {
-    const primary = await fetch(MATCH_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
-    });
-    const primaryData = await readJsonResponse(primary);
-
-    if (primary.ok && primaryData.company_summary && primaryData.icp_matches) {
-      return normalizeReportForUi({ ...primaryData, _meta: { source: 'ai', endpoint: 'legacy-supabase' } });
-    }
-
-    primaryError = primaryData.error || 'Primary AI endpoint returned an incomplete report';
-  } catch {
-    primaryError = 'Primary AI endpoint was unreachable';
-  }
-
-  const fallback = await fetch('/api/match', {
+  const response = await fetch(MATCH_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(formData),
   });
-  const fallbackData = await readJsonResponse(fallback);
+  const data = await readJsonResponse(response);
 
-  if (!fallback.ok) {
-    throw new Error(fallbackData.error || primaryError || 'Generation failed');
+  if (!response.ok) {
+    throw new Error(data.error || 'Generation failed');
   }
 
-  return normalizeReportForUi(fallbackData);
+  if (!data.company_summary || !data.icp_matches) {
+    throw new Error('Incomplete report received - try again');
+  }
+
+  return normalizeReportForUi({ ...data, _meta: { source: 'ai', endpoint: 'supabase-functions' } });
 };
 
 export default function App() {
