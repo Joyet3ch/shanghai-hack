@@ -221,7 +221,11 @@ export default function App() {
 
       setMatches(data);
       setActiveSection('matches');
-      toast.success('Intelligence Report ready');
+      if (data._meta?.source === 'fallback') {
+        toast.warning(`OrbitAI unavailable (${data._meta.reason}). Showing fallback report.`);
+      } else {
+        toast.success('AI Intelligence Report ready');
+      }
     } catch (error) {
       toast.error(`Error: ${error.message}`);
     } finally {

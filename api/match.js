@@ -194,7 +194,7 @@ const mergeStarterPartners = (partners) => {
   });
 };
 
-const createFallbackReport = (profile, vettedPartners) => {
+const createFallbackReport = (profile, vettedPartners, reason = 'orbit_unavailable') => {
   const {
     company_name,
     product_description,
@@ -225,7 +225,7 @@ const createFallbackReport = (profile, vettedPartners) => {
     },
   ].slice(0, 5);
 
-  return normalizeReport(
+  const report = normalizeReport(
     {
       company_summary: {
         name: company_name,
@@ -398,6 +398,15 @@ const createFallbackReport = (profile, vettedPartners) => {
     },
     vettedPartners,
   );
+
+  return {
+    ...report,
+    _meta: {
+      source: 'fallback',
+      reason,
+      model: 'gpt-5.4',
+    },
+  };
 };
 
 export default async function handler(req) {
@@ -444,7 +453,7 @@ export default async function handler(req) {
   vettedPartners = mergeStarterPartners(vettedPartners);
 
   if (!orbitKey) {
-    return json(createFallbackReport(body, vettedPartners));
+    return json(createFallbackReport(body, vettedPartners, 'missing_orbit_api_key'));
   }
 
   const SYSTEM_PROMPT = `You are WestReady, an elite GTM strategist specialized
@@ -566,7 +575,7 @@ Return ONLY the JSON object. Nothing else.`;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 18000);
+    const timeoutId = setTimeout(() => controller.abort(), 28000);
     const response = await fetch('https://aiapi.orbitai.global/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -587,19 +596,32 @@ Return ONLY the JSON object. Nothing else.`;
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      return json(createFallbackReport(body, vettedPartners));
+      return json(createFallbackReport(body, vettedPartners, `orbit_http_${response.status}`));
     }
 
     const aiData = await response.json();
     if (!aiData.choices?.[0]?.message?.content) {
-      return json(createFallbackReport(body, vettedPartners));
+      return json(createFallbackReport(body, vettedPartners, 'empty_orbit_response'));
     }
 
     const content = extractJsonObject(aiData.choices[0].message.content);
-    const report = normalizeReport(JSON.parse(content), vettedPartners);
+    const report = {
+      ...normalizeReport(JSON.parse(content), vettedPartners),
+      _meta: {
+        source: 'ai',
+        endpoint: 'chat/completions',
+        model: 'gpt-5.4',
+      },
+    };
 
     return json(report);
-  } catch {
-    return json(createFallbackReport(body, vettedPartners));
+  } catch (error) {
+    return json(
+      createFallbackReport(
+        body,
+        vettedPartners,
+        error?.name === 'AbortError' ? 'orbit_timeout' : 'orbit_request_failed',
+      ),
+    );
   }
 }
