@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     INTERNAL DATABASE PARTNERS (PRIORITIZE THESE): ${JSON.stringify(vettedPartners)}.
     
     If these internal partners match the industry, list them first and set "is_verified": true. 
-    Then use web search to find more companies to complete a report of 5 total partners. For web-found partners, set "is_verified": false.
+    Then use web search to find more companies to complete a report of 3 total partners. For web-found partners, set "is_verified": false.
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     COMPANY PROFILE
