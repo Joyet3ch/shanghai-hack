@@ -163,16 +163,16 @@ export default function App() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <button 
-                onClick={() => setShowDashboard(true)}
+                onClick={() => {
+                  if (user) {
+                    setShowDashboard(true);
+                  } else {
+                    toast.error("Access Denied: Devi fare il Log In per accedere alla piattaforma 🔒");
+                  }
+                }}
                 className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-full font-black text-lg flex items-center justify-center gap-2 shadow-[0_0_40px_rgba(37,99,235,0.3)] transition-all hover:scale-105"
               >
                 LAUNCH PLATFORM <ArrowRight size={20} />
-              </button>
-              <button 
-                onClick={() => setIsRegisterOpen(true)}
-                className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 border border-slate-700 transition-all"
-              >
-                Join as Western Partner
               </button>
             </div>
           </div>
