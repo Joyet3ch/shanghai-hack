@@ -97,29 +97,36 @@ function App() {
   };
 
   const generateEmail = async (partner) => {
-    setSelectedPartner(partner);
-    setIsGeneratingEmail(true);
-    setEmailContent(''); 
-    try {
-      // Nota: Questa può rimanere su Vercel (/api/email) o essere migrata come la precedente
-      const response = await fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          partnerName: partner.company_name,
-          partnerType: partner.sector,
-          industry: formData.sector,
-          userPitch: formData.product_description
-        })
-      });
-      const data = await response.json();
-      setEmailContent(data.text || "Bozza generata con successo.");
-    } catch (error) {
-      toast.error("Errore Outreach Engine");
-    } finally {
-      setIsGeneratingEmail(false);
-    }
-  };
+  setSelectedPartner(partner);
+  setIsGeneratingEmail(true);
+  try {
+    const response = await fetch('https://trgrzufskkbkazprltub.supabase.co/functions/v1/email', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({
+        partnerName: partner.company_name,
+        partnerType: partner.sector,
+        country: partner.country,
+        industry: formData.sector,
+        userPitch: formData.product_description,
+        companyName: formData.company_name,
+        whyTheyMatch: partner.why_they_match,
+        buyingTrigger: partner.buying_trigger
+      })
+    });
+    
+    const data = await response.json();
+    setEmailContent(data.text);
+  } catch (error) {
+    toast.error("Errore generazione email");
+  } finally {
+    setIsGeneratingEmail(false);
+  }
+};
 
   if (!session && !showAuth) return <Landing onNavigateToAuth={() => setShowAuth(true)} />;
   if (!session && showAuth) return <Auth />;
