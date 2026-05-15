@@ -1,82 +1,174 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { toast } from 'sonner';
+import { LayoutDashboard, Globe, Factory, Send, LogOut, Cpu, Zap, Car } from 'lucide-react';
+import Auth from './components/Auth';
+import Landing from './components/Landing';
 
 function App() {
-  const [inputDato, setInputDato] = useState('');
-  const [rispostaIA, setRispostaIA] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [session, setSession] = useState(null);
+  const [showAuth, setShowAuth] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [market, setMarket] = useState('Europe');
+  const [industry, setIndustry] = useState('Robotics');
+  const [prompt, setPrompt] = useState('');
+  const [result, setResult] = useState(null);
 
-  const gestisciInvio = async (e) => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) setShowAuth(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleGenerate = async (e) => {
     e.preventDefault();
+    if (!prompt) return toast.error('Please describe your product first');
     
-    // Gestione errore: campo vuoto
-    if (!inputDato) {
-      toast.error('Per favore, scrivi qualcosa nel prompt!');
-      return;
-    }
+    setLoading(true);
+    toast.info('AI Engine is analyzing GTM strategy...');
 
-    setIsLoading(true);
-    
-    // Notifica opzionale di caricamento
-    toast.info('Sto analizzando la richiesta...');
-
-    // MOCK DELLA CHIAMATA API
+    // Simulazione risposta strutturata
     setTimeout(() => {
-      setRispostaIA(`Questa è una risposta simulata per: "${inputDato}". Quando avrai il tema dell'hackathon e la chiave API, sostituiremo questo timeout con la chiamata reale!`);
-      setIsLoading(false);
-      setInputDato('');
-      
-      // Notifica di successo
-      toast.success('Risposta generata con successo!');
-    }, 1500);
+      setResult({
+        compliance: `Regulatory roadmap for ${industry} in ${market}: CE Marking required, GDPR data localization compliance...`,
+        culture: `Business etiquette in ${market}: Focus on direct communication and long-term partnership building.`,
+        strategy: `Recommended Entry: Tier-1 city pilot program starting in Q3 2026.`
+      });
+      setLoading(false);
+      toast.success('Strategy Generated!');
+    }, 2000);
   };
 
+  // 1. Se non c'è sessione e non ha cliccato Sign Up -> Mostra Landing
+  if (!session && !showAuth) {
+    return <Landing onNavigateToAuth={() => setShowAuth(true)} />;
+  }
+
+  // 2. Se non c'è sessione ma ha cliccato Sign Up -> Mostra Auth
+  if (!session && showAuth) {
+    return (
+      <div className="relative">
+        <button 
+          onClick={() => setShowAuth(false)}
+          className="absolute top-4 left-4 z-50 text-slate-500 hover:text-slate-800 font-medium"
+        >
+          ← Back to Home
+        </button>
+        <Auth />
+      </div>
+    );
+  }
+
+  // 3. Se c'è la sessione -> Mostra la Dashboard Completa
   return (
-    <div className="min-h-screen bg-gray-50 p-8 flex flex-col items-center justify-center font-sans">
-      
-      {/* Header */}
-      <header className="mb-12 text-center">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Hackathon Project</h1>
-        <p className="text-gray-500">In attesa del tema ufficiale...</p>
-      </header>
-
-      {/* Main Container */}
-      <main className="w-full max-w-2xl bg-white rounded-xl shadow-lg p-6">
-        
-        {/* Output Area (Dove finirà la risposta di Orbit AI) */}
-        <div className="min-h-[200px] bg-gray-100 rounded-lg p-4 mb-6 border border-gray-200">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full text-gray-500 animate-pulse">
-              L'IA sta elaborando...
-            </div>
-          ) : rispostaIA ? (
-            <p className="text-gray-700 whitespace-pre-wrap">{rispostaIA}</p>
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-400 italic">
-              Il risultato apparirà qui
-            </div>
-          )}
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
+      {/* Sidebar / Navigation */}
+      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="bg-blue-600 p-2 rounded-lg text-white">
+            <LayoutDashboard size={20} />
+          </div>
+          <span className="text-xl font-bold tracking-tight text-slate-800">BridgeAI <span className="text-blue-600">GTM</span></span>
         </div>
-
-        {/* Input Area */}
-        <form onSubmit={gestisciInvio} className="flex gap-4">
-          <input
-            type="text"
-            value={inputDato}
-            onChange={(e) => setInputDato(e.target.value)}
-            placeholder="Scrivi qui il tuo prompt..."
-            className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
-          >
-            Invia
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-500 hidden sm:block">{session.user.email}</span>
+          <button onClick={() => supabase.auth.signOut()} className="flex items-center gap-2 text-slate-600 hover:text-red-600 transition-colors text-sm font-medium">
+            <LogOut size={18} /> Logout
           </button>
-        </form>
+        </div>
+      </nav>
 
+      <main className="max-w-6xl mx-auto p-6 lg:p-10">
+        <div className="grid lg:grid-cols-3 gap-8">
+          
+          {/* Left Column: Configuration */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800">
+                <Globe size={18} className="text-blue-600" /> Target Market
+              </h2>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {['Europe', 'North America'].map((m) => (
+                  <button 
+                    key={m}
+                    onClick={() => setMarket(m)}
+                    className={`py-2 px-3 rounded-lg text-sm font-medium border transition-all ${market === m ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800">
+                <Factory size={18} className="text-blue-600" /> Industry Sector
+              </h2>
+              <div className="space-y-2 mb-6">
+                {[
+                  { id: 'Robotics', icon: <Cpu size={16}/> },
+                  { id: 'EV & Battery', icon: <Zap size={16}/> },
+                  { id: 'Smart Mobility', icon: <Car size={16}/> }
+                ].map((i) => (
+                  <button 
+                    key={i.id}
+                    onClick={() => setIndustry(i.id)}
+                    className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-medium border transition-all ${industry === i.id ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                  >
+                    {i.icon} {i.id}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleGenerate} className="space-y-4">
+                <label className="block text-sm font-semibold text-slate-700">Product Description</label>
+                <textarea 
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Describe your product and expansion goals..."
+                  className="w-full h-32 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-slate-50 text-sm resize-none"
+                />
+                <button 
+                  disabled={loading}
+                  className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition-all disabled:bg-slate-400 shadow-lg shadow-slate-200"
+                >
+                  {loading ? 'Analyzing...' : <><Send size={18} /> Generate Strategy</>}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Right Column: AI Output */}
+          <div className="lg:col-span-2">
+            {!result && !loading ? (
+              <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-white rounded-3xl border-2 border-dashed border-slate-200 p-10 text-center">
+                <div className="bg-slate-50 p-6 rounded-full mb-4">
+                  <Globe size={48} className="text-slate-300" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Ready to expand?</h3>
+                <p className="text-slate-500 max-w-xs">Fill in your product details to generate a customized GTM roadmap.</p>
+              </div>
+            ) : (
+              <div className="space-y-6 animate-in fade-in duration-500">
+                {/* Result Cards */}
+                {[
+                  { title: 'Regulatory & Compliance', content: result?.compliance, color: 'border-l-amber-500' },
+                  { title: 'Cultural Localization', content: result?.culture, color: 'border-l-purple-500' },
+                  { title: 'Strategic GTM Roadmap', content: result?.strategy, color: 'border-l-emerald-500' }
+                ].map((card, idx) => (
+                  <div key={idx} className={`bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-4 ${card.color}`}>
+                    <h3 className="font-bold text-slate-800 mb-2">{card.title}</h3>
+                    <p className="text-slate-600 text-sm leading-relaxed">
+                      {loading ? <span className="inline-block w-full h-4 bg-slate-100 animate-pulse rounded" /> : card.content}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
       </main>
     </div>
   );
