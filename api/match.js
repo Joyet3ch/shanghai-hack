@@ -6,6 +6,11 @@ const json = (payload, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+const LEGACY_MATCH_API_URL =
+  process.env.MATCH_API_URL ||
+  process.env.VITE_MATCH_API_URL ||
+  'https://trgrzufskkbkazprltub.supabase.co/functions/v1/match';
+
 const STARTER_PARTNERS = [
   {
     company_name: 'Sonnen GmbH',
@@ -409,6 +414,34 @@ const createFallbackReport = (profile, vettedPartners, reason = 'orbit_unavailab
   };
 };
 
+const tryLegacyMatchApi = async (body) => {
+  if (!LEGACY_MATCH_API_URL) return null;
+
+  try {
+    const response = await fetch(LEGACY_MATCH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) return null;
+    const data = await response.json();
+
+    if (!data.company_summary || !data.icp_matches) return null;
+
+    return {
+      ...data,
+      _meta: {
+        source: 'ai',
+        endpoint: 'legacy-supabase-proxy',
+        model: 'gpt-5.4',
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return json({ error: 'Method Not Allowed' }, 405);
@@ -451,6 +484,11 @@ export default async function handler(req) {
   }
 
   vettedPartners = mergeStarterPartners(vettedPartners);
+
+  const legacyReport = await tryLegacyMatchApi(body);
+  if (legacyReport) {
+    return json(legacyReport);
+  }
 
   if (!orbitKey) {
     return json(createFallbackReport(body, vettedPartners, 'missing_orbit_api_key'));

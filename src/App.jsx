@@ -33,6 +33,13 @@ const SECTORS = [
   'Consumer Tech & Cross-Border DTC',
 ];
 
+const MATCH_API_URL =
+  import.meta.env.VITE_MATCH_API_URL ||
+  'https://trgrzufskkbkazprltub.supabase.co/functions/v1/match';
+const EMAIL_API_URL =
+  import.meta.env.VITE_EMAIL_API_URL ||
+  'https://trgrzufskkbkazprltub.supabase.co/functions/v1/email';
+
 const NAV_ITEMS = [
   { id: 'matches', label: 'Partners', icon: Target },
   { id: 'competitors', label: 'Competitors', icon: BarChart3 },
@@ -139,6 +146,116 @@ const readJsonResponse = async (response) => {
   }
 };
 
+const normalizeReportForUi = (report) => {
+  if (!report) return report;
+
+  const actionPlan = report.action_plan || {};
+  const weeks = Array.isArray(actionPlan.weeks) && actionPlan.weeks.length
+    ? actionPlan.weeks
+    : [
+        actionPlan.phase_1 && {
+          period: 'Week 1-4',
+          theme: 'Foundation & Market Proof',
+          actions: [actionPlan.phase_1],
+          milestone: 'Core market entry assumptions are validated.',
+        },
+        actionPlan.phase_2 && {
+          period: 'Week 5-8',
+          theme: 'Partner Outreach & Validation',
+          actions: [actionPlan.phase_2],
+          milestone: 'Qualified partner conversations and pilot path are active.',
+        },
+        actionPlan.phase_3 && {
+          period: 'Week 9-12',
+          theme: 'Commercial Pilot & Board Plan',
+          actions: [actionPlan.phase_3],
+          milestone: 'Pilot structure and next-step GTM plan are ready.',
+        },
+      ].filter(Boolean);
+
+  return {
+    ...report,
+    action_plan: {
+      ...actionPlan,
+      market_entry_timeline: actionPlan.market_entry_timeline || '90 days',
+      weeks,
+      first_action_tomorrow:
+        actionPlan.first_action_tomorrow ||
+        weeks[0]?.actions?.[0] ||
+        'Validate the first partner target and compliance blocker before broad outreach.',
+    },
+    icp_matches: (report.icp_matches || []).map((partner, index) => ({
+      ...partner,
+      rank: partner.rank || index + 1,
+      buying_signal_status: partner.buying_signal_status || (index < 2 ? 'warm' : 'cool'),
+      company_size: partner.company_size || 'Size not disclosed',
+      first_move:
+        partner.first_move ||
+        `Send a concise outreach note to ${partner.company_name} with a technical dossier and pilot proposal.`,
+      scores: {
+        product_fit: Number(partner.scores?.product_fit) || 20,
+        market_readiness: Number(partner.scores?.market_readiness) || 20,
+        strategic_value: Number(partner.scores?.strategic_value) || 20,
+        accessibility: Number(partner.scores?.accessibility) || 18,
+        overall:
+          Number(partner.scores?.overall) ||
+          Number(partner.match_score) ||
+          78,
+      },
+    })),
+    competitor_intelligence: (report.competitor_intelligence || []).map((competitor, index) => ({
+      ...competitor,
+      rank: competitor.rank || index + 1,
+      who_they_target: competitor.who_they_target || 'Western enterprise and channel buyers',
+      positioning: competitor.positioning || 'Established Western-market competitor with stronger local trust.',
+      pricing_signal: competitor.pricing_signal || null,
+      threat_level: competitor.threat_level || 'Medium',
+    })),
+    risk_assessment: (report.risk_assessment || []).map((risk, index) => ({
+      ...risk,
+      rank: risk.rank || index + 1,
+      risk_type: risk.risk_type || 'Operational',
+      severity: risk.severity || 'Medium',
+      probability: risk.probability || 'Medium',
+      cost_of_ignoring: risk.cost_of_ignoring || 'Delayed market entry and weaker partner conversion.',
+    })),
+  };
+};
+
+const fetchReport = async (formData) => {
+  let primaryError;
+
+  try {
+    const primary = await fetch(MATCH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData),
+    });
+    const primaryData = await readJsonResponse(primary);
+
+    if (primary.ok && primaryData.company_summary && primaryData.icp_matches) {
+      return normalizeReportForUi({ ...primaryData, _meta: { source: 'ai', endpoint: 'legacy-supabase' } });
+    }
+
+    primaryError = primaryData.error || 'Primary AI endpoint returned an incomplete report';
+  } catch {
+    primaryError = 'Primary AI endpoint was unreachable';
+  }
+
+  const fallback = await fetch('/api/match', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData),
+  });
+  const fallbackData = await readJsonResponse(fallback);
+
+  if (!fallback.ok) {
+    throw new Error(fallbackData.error || primaryError || 'Generation failed');
+  }
+
+  return normalizeReportForUi(fallbackData);
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('landing');
@@ -202,17 +319,7 @@ export default function App() {
     setEmailModal(null);
 
     try {
-      const response = await fetch('/api/match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      const data = await readJsonResponse(response);
-
-      if (!response.ok) {
-        toast.error(data.error || 'Generation failed');
-        return;
-      }
+      const data = await fetchReport(formData);
 
       if (!data.company_summary || !data.icp_matches) {
         toast.error('Incomplete report received - try again');
@@ -238,7 +345,7 @@ export default function App() {
     setEmailContent('');
 
     try {
-      const response = await fetch('/api/email', {
+      const response = await fetch(EMAIL_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
