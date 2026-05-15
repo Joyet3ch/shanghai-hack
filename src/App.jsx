@@ -56,19 +56,32 @@ function App() {
     if (!formData.company_name || !formData.product_description) return toast.error('Completa il profilo!');
     
     setLoading(true);
-    setMatches(null);
+    setMatches(null); // Resetta lo stato in modo sicuro
     
     try {
-      // FASE 1: Caricamento CORE (Partner & Summary) - Più veloce
       toast.info('Analisi Mercato in corso...');
+      
+      // 🚀 FASE 1: Caricamento CORE
       const res1 = await fetch('/api/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, type: 'core' })
       });
+      
       const coreData = await res1.json();
       
-      // Mostriamo subito i primi risultati per migliorare la UX
+      // DIFESA 1: Se il server risponde con un errore (es. API Key sbagliata o timeout)
+      if (!res1.ok || coreData.error) {
+        throw new Error(coreData.error || "Errore di comunicazione con l'IA.");
+      }
+
+      // DIFESA 2: Verifica che l'IA non abbia allucinato e abbia mandato il JSON corretto
+      if (!coreData.company_summary) {
+        console.error("Dati AI malformati:", coreData);
+        throw new Error("L'IA ha generato un formato non valido. Riprova.");
+      }
+      
+      // Se arriviamo qui, i dati sono SICURI. Aggiorniamo la UI.
       setMatches({
         ...coreData,
         competitor_intelligence: [],
@@ -77,25 +90,31 @@ function App() {
 
       toast.success('Partner trovati! Analisi rischi in corso...');
 
-      // FASE 2: Caricamento ANALISI (Competitor & Rischi)
+      // 🚀 FASE 2: Caricamento ANALISI
       const res2 = await fetch('/api/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, type: 'analysis' })
       });
+      
       const analysisData = await res2.json();
 
-      // Aggiorniamo i dati completi
-      setMatches(prev => ({
-        ...prev,
-        competitor_intelligence: analysisData.competitor_intelligence,
-        risk_assessment: analysisData.risk_assessment
-      }));
+      // Se la fase 2 fallisce, almeno la fase 1 (Partner) resta visibile
+      if (res2.ok && !analysisData.error) {
+        setMatches(prev => ({
+          ...prev,
+          competitor_intelligence: analysisData.competitor_intelligence || [],
+          risk_assessment: analysisData.risk_assessment || []
+        }));
+        toast.success('Report Intelligence Completo!');
+      } else {
+         toast.warning("L'analisi dei competitor ha richiesto troppo tempo, ma i partner sono pronti!");
+      }
 
-      toast.success('Report Intelligence Completo!');
     } catch (error) {
-      toast.error('Errore durante la generazione. Riprova.');
-      console.error(error);
+      toast.error(`Generazione fallita: ${error.message}`);
+      console.error("CRASH EVITATO:", error);
+      setMatches(null); // Mantiene la UI pulita invece di crashare
     } finally {
       setLoading(false);
     }
