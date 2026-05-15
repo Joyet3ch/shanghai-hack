@@ -1,6 +1,6 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
   const { sector, target_market, company_name, product_description, type } = req.body;
@@ -10,10 +10,9 @@ module.exports = async (req, res) => {
     const key = process.env.VITE_SUPABASE_ANON_KEY;
     const orbitKey = process.env.ORBIT_API_KEY;
 
-    // Controllo chiave AI
     if (!orbitKey) {
       console.error("ERRORE: Manca la ORBIT_API_KEY su Vercel");
-      return res.status(500).json({ error: "Server misconfigured: missing AI key" });
+      return res.status(500).json({ error: "Missing AI Key" });
     }
 
     let vettedPartners = [];
@@ -23,13 +22,12 @@ module.exports = async (req, res) => {
         const { data } = await supabase.from('partners').select('*').limit(2);
         if (data) vettedPartners = data;
       } catch (dbErr) {
-        console.error("Errore DB (ignorato):", dbErr.message);
+        console.error("Errore DB:", dbErr.message);
       }
     }
 
     let systemPrompt = "You are a GTM Strategist. Respond ONLY with valid JSON. No markdown, no intro.";
     
-    // Chiediamo meno dati per non far scattare il timeout di Vercel
     if (type === 'core') {
       systemPrompt += `
       INTERNAL PARTNERS: ${JSON.stringify(vettedPartners)}.
@@ -53,7 +51,6 @@ module.exports = async (req, res) => {
 
     const userPrompt = `Company: ${company_name}. Sector: ${sector}. Target: ${target_market}. Product: ${product_description}`;
 
-    // Timer di 8 secondi: Vercel stacca a 10s, noi blocchiamo prima per evitare il crash totale
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8500); 
 
@@ -81,14 +78,11 @@ module.exports = async (req, res) => {
     const aiData = await response.json();
     let content = aiData.choices[0].message.content;
     
-    // Pulizia JSON
     content = content.replace(/^```json/, '').replace(/```$/, '').trim();
-    
-    const parsedData = JSON.parse(content);
-    return res.status(200).json(parsedData);
+    return res.status(200).json(JSON.parse(content));
 
   } catch (e) {
-    console.error("Errore API:", e.message);
-    return res.status(500).json({ error: `Errore: ${e.message}` });
+    console.error("Errore Catch:", e.message);
+    return res.status(500).json({ error: e.message });
   }
-};
+}
