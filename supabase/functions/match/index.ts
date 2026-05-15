@@ -7,114 +7,136 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Gestione CORS (per permettere al browser di chiamare la funzione)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { sector, target_market, company_name, product_description, type, company_stage } = await req.json()
-    
+    const { 
+      company_name, 
+      product_description, 
+      business_model, 
+      target_market, 
+      sector, 
+      company_stage, 
+      biggest_concern 
+    } = await req.json()
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ""
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? "" // Usiamo la service role per leggere tutto
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ""
     const orbitKey = Deno.env.get('ORBIT_API_KEY')
 
-    // 1. RICERCA PARTNER REALI NEL TUO DB
+    // 1. RECUPERO PARTNER DAL DATABASE (Internal Intelligence)
     const supabase = createClient(supabaseUrl, supabaseKey)
     let vettedPartners = []
     const { data } = await supabase
       .from('partners')
       .select('*')
-      .eq('sector', sector) // Filtriamo per il settore scelto dall'utente
-      .limit(5)
+      .or(`sector.eq."${sector}",sector.ilike."%${sector}%"`) // Ricerca flessibile
+      .limit(10)
     if (data) vettedPartners = data
 
-    // 2. COSTRUZIONE DEL MEGA PROMPT (Senza limiti di tempo!)
-    let systemPrompt = `You are a Senior GTM Strategist specializing in Chinese Tech expansion to Western Markets.
-    Your goal is to provide a high-value, professional intelligence report.
-    Respond ONLY with a valid JSON object. No prose, no markdown code blocks.`;
+    // 2. COSTRUZIONE DEL MEGA PROMPT
+    const userPrompt = `
+      Analyze the following Chinese startup and generate a complete Western Market Entry Intelligence Report.
+      
+      You are a Senior GTM Strategist. 
+      INTERNAL DATABASE PARTNERS (MANDATORY PRIORITY): ${JSON.stringify(vettedPartners)}.
+      
+      CRITICAL INSTRUCTIONS:
+      1. PREFERENCE LOGIC: You MUST prioritize the INTERNAL DATABASE PARTNERS if they have even a partial match with the sector or product. 
+      2. VERIFICATION: For any partner taken from the INTERNAL DATABASE, set "is_verified": true.
+      3. SUPPLEMENT: Use your internal knowledge and web search to find additional REAL companies to reach exactly 5 total partners. For these external companies, set "is_verified": false.
+      4. STRATEGY: At equal score, always prefer the internal database partner.
 
-    let specificInstructions = "";
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      COMPANY PROFILE
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      Company Name:      ${company_name}
+      Product/Service:   ${product_description}
+      Business Model:    ${business_model || 'N/A'}
+      Target Market:     ${target_market}
+      Sector:            ${sector}
+      Company Stage:     ${company_stage}
+      Biggest Concern:   ${biggest_concern || 'Market entry barriers'}
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    if (type === 'summary') {
-      specificInstructions = `Analyze the startup ${company_name} (${company_stage}).
-      Provide a deep analysis of their market positioning in ${target_market}.
-      Required JSON structure:
+      Return a single valid JSON object. STRICT SCHEMA:
       {
-        "company_summary": {
-          "name": "${company_name}",
-          "one_line_pitch": "A sophisticated one-line value proposition",
-          "market_readiness_score": number (0-100),
-          "market_readiness_label": "e.g. READY / CAUTIOUS / HIGH POTENTIAL",
-          "critical_insight": "A non-obvious strategic insight about entering ${target_market} for this specific tech"
-        }
-      }`;
-    } else if (type === 'partners') {
-      specificInstructions = `Matchmaker role. Database of vetted partners: ${JSON.stringify(vettedPartners)}.
-      Find the 3 best possible partners in ${target_market}. If any from the database match, prioritize them and set "is_verified": true.
-      For each match, calculate a detailed score.
-      Required JSON structure:
-      {
+        "company_summary": { 
+          "name": "string", 
+          "one_line_pitch": "string", 
+          "market_readiness_score": number, 
+          "market_readiness_label": "string", 
+          "critical_insight": "string" 
+        },
         "icp_matches": [
           {
             "rank": number,
             "company_name": "string",
             "is_verified": boolean,
+            "website": "string",
             "country": "string",
             "sector": "string",
-            "why_they_match": "Detailed explanation of strategic synergy",
-            "decision_maker_title": "Specific job title to target",
-            "buying_trigger": "What event makes them need this tech right now?",
-            "scores": { "product_fit": 0-25, "market_readiness": 0-25, "strategic_value": 0-25, "accessibility": 0-25, "overall": 0-100 }
+            "company_size": "string",
+            "why_they_match": "string",
+            "decision_maker_title": "string",
+            "buying_trigger": "string",
+            "scores": { "product_fit": number, "market_readiness": number, "strategic_value": number, "accessibility": number, "overall": number },
+            "first_move": "string"
           }
-        ]
-      }`;
-    } else {
-      specificInstructions = `Deep Risk and Competitor Analysis.
-      Identify 2 direct competitors and 2 strategic risks (Regulatory, Cultural, or Technical).
-      Provide a specific mitigation for each risk.
-      Required JSON structure:
-      {
-        "competitor_intelligence": [
-          { "company_name": "string", "country": "string", "what_they_sell": "string", "threat_level": "High/Med", "weakness": "Their main strategic gap" }
         ],
+        "competitor_intelligence": [
+          { "company_name": "string", "country": "string", "what_they_sell": "string", "threat_level": "string", "weakness": "string" }
+        ],
+        "action_plan": {
+          "phase_1": "string",
+          "phase_2": "string",
+          "phase_3": "string"
+        },
         "risk_assessment": [
-          { "risk_title": "string", "description": "string", "mitigation": "Practical step to overcome this risk" }
+          { "risk_title": "string", "description": "string", "mitigation": "string" }
         ]
-      }`;
-    }
+      }
+    `;
 
-    // 3. CHIAMATA A ORBIT AI (Senza AbortController corto!)
-    const aiResponse = await fetch("https://aiapi.orbitai.global/v1/chat/completions", {
+    // 3. CHIAMATA A ORBIT AI (GPT-5.4 / High Intelligence)
+    const response = await fetch("https://aiapi.orbitai.global/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${orbitKey}` },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${orbitKey}` 
+      },
       body: JSON.stringify({
         model: "gpt-5.4",
         messages: [
-          { role: "system", content: systemPrompt + specificInstructions },
-          { role: "user", content: `Company: ${company_name}. Tech: ${product_description}. Market: ${target_market}.` }
+          { 
+            role: "system", 
+            content: "You are a Strategic Market Intelligence Bot. You provide data-driven reports in strict JSON format. Use web search to find REAL companies and competitors in the target market. Never hallucinate websites." 
+          },
+          { role: "user", content: userPrompt }
         ],
-        temperature: 0.3 // Leggermente più alto per analisi più creative
+        temperature: 0.2
       })
-    })
+    });
 
-    const aiData = await aiResponse.json()
-    let content = aiData.choices[0].message.content
+    if (!response.ok) throw new Error('Orbit API Error');
+
+    const dataAI = await response.json();
+    let rawContent = dataAI.choices[0].message.content.trim();
     
-    // Pulizia rigorosa del JSON (l'IA a volte mette i ```json)
-    content = content.replace(/^[^{]*|[^}]*$/g, "") 
-    
-    return new Response(content, {
+    // Pulizia JSON dai markdown backticks
+    rawContent = rawContent.replace(/^```json/, '').replace(/```$/, '').trim();
+
+    return new Response(rawContent, {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
-    })
+    });
 
   } catch (error) {
-    console.error("ERRORE EDGE FUNCTION:", error.message)
-    // PARACADUTE DI EMERGENZA (Se l'IA fallisce, mandiamo comunque un JSON valido per non rompere il sito)
-    return new Response(JSON.stringify({ error: error.message, is_fallback: true }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200, // Mandiamo 200 per gestire il fallback nel frontend
-    })
+      status: 400,
+    });
   }
 })
