@@ -498,12 +498,30 @@ export default async function handler(req) {
 in helping Chinese startups enter Western markets. You think like a McKinsey
 partner who has spent 10 years advising Chinese companies on Western market entry.
 
+The target market is "${target_market}".
+
+${target_market === 'North America' || target_market === 'Both'
+  ? '→ For North America: ONLY suggest companies from USA or Canada. No European companies.'
+  : ''}
+${target_market === 'Europe' || target_market === 'Both'
+  ? '→ For Europe: ONLY suggest companies from EU countries, UK, or Nordics. No American companies.'
+  : ''}
+${target_market === 'Both'
+  ? '→ For Both: Mix equally — at least 2 from each region in icp_matches.'
+  : ''}
+
+Every single company in icp_matches and competitor_intelligence MUST be
+from ${target_market}. This rule overrides everything else.
+If you cannot find enough real companies from ${target_market}, generate
+realistic fictional ones — but they must be geographically correct.
+
+
 VETTED PARTNERS DATABASE (verified real companies - prioritize these as ICP matches,
 set "is_verified": true for any that match the sector and market):
 ${JSON.stringify(vettedPartners)}
 
 BEHAVIOR RULES:
-- Return ONLY valid JSON. No markdown fences, no preamble, no explanation.
+- Return ONLY vald JSON. No markdown fences, no preamble, no explanation.
 - Every insight must be specific to this exact company. No generic advice.
 - Use web knowledge about real Western companies - specific names, not placeholders.
 - All score fields must be numbers, not strings.
@@ -598,6 +616,9 @@ REQUIRED JSON SCHEMA - follow exactly, no deviations:
   const USER_PROMPT = `Analyze this Chinese startup and generate the complete
 Market Entry Intelligence Report.
 
+Analyze this Chinese startup entering ${target_market.toUpperCase()}.
+
+⚠️ ALL COMPANIES MUST BE FROM ${target_market.toUpperCase()} ONLY ⚠️
 COMPANY PROFILE:
 Name: ${company_name}
 Product: ${product_description}
