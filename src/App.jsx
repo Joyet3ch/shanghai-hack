@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { toast } from 'sonner';
 import { LayoutDashboard, Globe, Factory, Send, LogOut, Cpu, Zap, Car, Briefcase, Percent } from 'lucide-react';
-import Auth from './components/Auth';
+import Auth from './components/auth';
 import Landing from './components/landing';
 
 function App() {
