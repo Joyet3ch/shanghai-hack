@@ -5,7 +5,7 @@ import {
   ArrowRight, Loader2, Mail, LayoutDashboard, ChevronRight,
   TrendingUp, Target, ShieldAlert
 } from 'lucide-react';
-import RegisterPartner from './RegisterPartner'; // Assicurati che il file si chiami così e sia nella stessa cartella
+import RegisterPartner from './components/RegisterPartner'; // Assicurati che il file si chiami così e sia nella stessa cartella
 
 const MATCH_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/match';
 const EMAIL_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/email';
@@ -307,4 +307,4 @@ export default function App() {
       <RegisterPartner isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
     </div>
   );
-}
+} 
