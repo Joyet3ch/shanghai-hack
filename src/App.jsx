@@ -3,8 +3,6 @@ import { supabase } from './lib/supabase';
 import { toast } from 'sonner';
 import { 
   Globe, 
-  Factory, 
-  Send, 
   LogOut, 
   Cpu, 
   Zap, 
@@ -13,18 +11,15 @@ import {
   Percent, 
   Mail, 
   ShieldCheck, 
-  TrendingUp, 
-  Search,
-  MessageSquareQuote,
-  LayoutDashboard,
-  Calendar,
   BarChart3,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  LayoutDashboard,
+  AlertTriangle
 } from 'lucide-react';
-import Auth from './components/auth';
-import Landing from './components/landing';
-import RegisterPartner from './components/RegisterPartner'; // Assicurati di aver creato questo file!
+import Auth from './components/Auth';
+import Landing from './components/Landing';
+import RegisterPartner from './components/RegisterPartner';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -58,21 +53,49 @@ function App() {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!formData.company_name || !formData.product_description) return toast.error('Complete the profile!');
+    if (!formData.company_name || !formData.product_description) return toast.error('Completa il profilo!');
+    
     setLoading(true);
     setMatches(null);
+    
     try {
-      const response = await fetch('/api/match', {
+      // FASE 1: Caricamento CORE (Partner & Summary) - Più veloce
+      toast.info('Analisi Mercato in corso...');
+      const res1 = await fetch('/api/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, type: 'core' })
       });
-      if (!response.ok) throw new Error(`API error ${response.status}`);
-      const data = await response.json();
-      setMatches(data);
-      toast.success('Hybrid Intelligence Report Ready');
+      const coreData = await res1.json();
+      
+      // Mostriamo subito i primi risultati per migliorare la UX
+      setMatches({
+        ...coreData,
+        competitor_intelligence: [],
+        risk_assessment: []
+      });
+
+      toast.success('Partner trovati! Analisi rischi in corso...');
+
+      // FASE 2: Caricamento ANALISI (Competitor & Rischi)
+      const res2 = await fetch('/api/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, type: 'analysis' })
+      });
+      const analysisData = await res2.json();
+
+      // Aggiorniamo i dati completi
+      setMatches(prev => ({
+        ...prev,
+        competitor_intelligence: analysisData.competitor_intelligence,
+        risk_assessment: analysisData.risk_assessment
+      }));
+
+      toast.success('Report Intelligence Completo!');
     } catch (error) {
-      toast.error('AI Intelligence Engine Timeout');
+      toast.error('Errore durante la generazione. Riprova.');
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -97,227 +120,207 @@ function App() {
       const data = await response.json();
       setEmailContent(data.text);
     } catch (error) {
-      toast.error("Generation failed");
+      toast.error("Errore generazione email");
     } finally {
       setIsGeneratingEmail(false);
     }
   };
 
   if (!session && !showAuth) return <Landing onNavigateToAuth={() => setShowAuth(true)} />;
-  if (!session && showAuth) return (
-    <div className="relative min-h-screen bg-white">
-      <button onClick={() => setShowAuth(false)} className="absolute top-6 left-6 z-50 text-slate-400 font-black hover:text-slate-900 transition-colors">← BACK</button>
-      <Auth />
-    </div>
-  );
+  if (!session && showAuth) return <Auth />;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 pb-20">
-      {/* GLOBAL NAVIGATION CON TASTO REGISTER */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-40 shadow-sm">
+    <div className="min-h-screen bg-[#0F172A] font-sans text-slate-200 pb-20">
+      <nav className="bg-slate-900/50 backdrop-blur-md border-b border-slate-800 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 p-2 rounded-xl text-white shadow-lg"><Briefcase size={22} /></div>
-          <span className="text-2xl font-black tracking-tighter italic">BRIDGE<span className="text-blue-600">MATCH</span></span>
+          <span className="text-2xl font-black tracking-tighter italic text-white">BRIDGE<span className="text-blue-500">MATCH</span></span>
         </div>
-        
         <div className="flex items-center gap-4">
-          {/* IL TASTO WOW PER LE AZIENDE OCCIDENTALI */}
-          <button 
-            onClick={() => setIsRegisterOpen(true)}
-            className="hidden md:flex items-center gap-2 bg-blue-50 text-blue-600 border border-blue-200 px-5 py-2.5 rounded-2xl text-xs font-black hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-          >
+          <button onClick={() => setIsRegisterOpen(true)} className="hidden md:flex items-center gap-2 bg-blue-600/10 text-blue-400 border border-blue-500/20 px-5 py-2.5 rounded-2xl text-xs font-black hover:bg-blue-600 hover:text-white transition-all">
             <CheckCircle size={16} /> BECOME A PARTNER
           </button>
-          
-          <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-300 hover:text-red-500 transition-all">
-            <LogOut size={22} />
-          </button>
+          <button onClick={() => supabase.auth.signOut()} className="p-2 text-slate-500 hover:text-red-400 transition-all"><LogOut size={22} /></button>
         </div>
       </nav>
 
       <main className="max-w-7xl mx-auto p-6 lg:p-10">
         <div className="grid lg:grid-cols-12 gap-10">
           
-          {/* SIDEBAR FORM */}
+          {/* CONFIGURATOR SIDEBAR */}
           <div className="lg:col-span-4">
-            <div className="bg-white p-8 rounded-[2.5rem] shadow-2xl shadow-slate-200/50 border border-slate-100 sticky top-28">
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter mb-6 text-left">GTM Configurator</h2>
+            <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl sticky top-28">
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter mb-6 text-left">GTM Configurator</h2>
               <form onSubmit={handleGenerate} className="space-y-5 text-left">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Company Identity</label>
-                  <input type="text" value={formData.company_name} onChange={(e) => setFormData({...formData, company_name: e.target.value})} className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 text-sm font-bold outline-none" placeholder="e.g. Shanghai AI" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Company Identity</label>
+                  <input type="text" value={formData.company_name} onChange={(e) => setFormData({...formData, company_name: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all" placeholder="es. Shanghai Robotics" />
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Market</label>
-                    <select value={formData.target_market} onChange={(e) => setFormData({...formData, target_market: e.target.value})} className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 text-xs font-bold outline-none">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Market</label>
+                    <select value={formData.target_market} onChange={(e) => setFormData({...formData, target_market: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-xs font-bold text-white outline-none">
                       <option>Europe</option><option>North America</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Stage</label>
-                    <select value={formData.company_stage} onChange={(e) => setFormData({...formData, company_stage: e.target.value})} className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 text-xs font-bold outline-none">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Stage</label>
+                    <select value={formData.company_stage} onChange={(e) => setFormData({...formData, company_stage: e.target.value})} className="w-full p-4 rounded-2xl bg-slate-800 border border-slate-700 text-xs font-bold text-white outline-none">
                       <option>Growth</option><option>Early Seed</option>
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Strategic Sector</label>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Strategic Sector</label>
                   <div className="grid grid-cols-1 gap-2">
                     {['Robotics', 'EV & Battery', 'Smart Mobility'].map(s => (
-                      <button key={s} type="button" onClick={() => setFormData({...formData, sector: s})} className={`p-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-3 ${formData.sector === s ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'}`}>
+                      <button key={s} type="button" onClick={() => setFormData({...formData, sector: s})} className={`p-3 rounded-xl text-xs font-bold border transition-all flex items-center gap-3 ${formData.sector === s ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                         {s === 'Robotics' ? <Cpu size={14}/> : s === 'EV & Battery' ? <Zap size={14}/> : <Car size={14}/>} {s}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tech Description</label>
-                  <textarea value={formData.product_description} onChange={(e) => setFormData({...formData, product_description: e.target.value})} className="w-full h-32 p-4 rounded-2xl border border-slate-100 bg-slate-50 text-sm font-medium outline-none resize-none" placeholder="Describe your product..." />
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Tech Description</label>
+                  <textarea value={formData.product_description} onChange={(e) => setFormData({...formData, product_description: e.target.value})} className="w-full h-32 p-4 rounded-2xl bg-slate-800 border border-slate-700 text-sm font-medium text-white outline-none resize-none" placeholder="Descrivi la tua tecnologia..." />
                 </div>
-                <button disabled={loading} className="w-full bg-slate-900 text-white py-5 rounded-[1.5rem] font-black text-sm hover:bg-blue-600 transition-all shadow-xl shadow-slate-200 active:scale-95">
-                  {loading ? 'ANALYSING MARKET...' : 'GENERATE HYBRID REPORT'}
+
+                <button disabled={loading} className="w-full bg-blue-600 text-white py-5 rounded-[1.5rem] font-black text-sm hover:bg-blue-500 transition-all shadow-xl shadow-blue-900/20 disabled:opacity-50">
+                  {loading ? 'ANALISI IN CORSO...' : 'GENERATE HYBRID REPORT'}
                 </button>
               </form>
             </div>
           </div>
 
-          {/* DASHBOARD RISULTATI */}
+          {/* DASHBOARD */}
           <div className="lg:col-span-8 space-y-10">
             {matches ? (
-              <div className="animate-in fade-in zoom-in-95 duration-700 text-left">
+              <div className="animate-in fade-in duration-700 text-left">
                 
-                {/* SUMMARY CARD */}
-                <div className="bg-slate-900 text-white p-12 rounded-[3.5rem] mb-12 shadow-2xl relative overflow-hidden">
+                {/* EXECUTIVE SUMMARY */}
+                <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-12 rounded-[3.5rem] mb-12 shadow-2xl relative overflow-hidden">
                   <div className="relative z-10 flex justify-between items-start">
-                    <div>
+                    <div className="max-w-md">
                       <h3 className="text-5xl font-black tracking-tighter mb-4 leading-none">{matches.company_summary.name}</h3>
-                      <p className="text-blue-400 font-bold text-xl italic italic">"{matches.company_summary.one_line_pitch}"</p>
+                      <p className="text-blue-100 font-bold text-xl italic opacity-90">"{matches.company_summary.one_line_pitch}"</p>
                     </div>
-                    <div className="text-center bg-white/10 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/20">
-                      <div className="text-5xl font-black text-blue-400 tracking-tighter">{matches.company_summary.market_readiness_score}%</div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-white/50 mt-1">{matches.company_summary.market_readiness_label}</div>
+                    <div className="text-center bg-white/10 backdrop-blur-md p-6 rounded-[2.5rem] border border-white/20">
+                      <div className="text-5xl font-black text-white tracking-tighter">{matches.company_summary.market_readiness_score}%</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-white/60 mt-1">Market Readiness</div>
                     </div>
                   </div>
                 </div>
 
-                {/* ICP MATCHES CON BADGE VERIFIED */}
+                {/* ICP MATCHES */}
                 <div className="mb-12">
-                  <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3"><BarChart3 className="text-blue-600" /> Vetted Partner Matches</h3>
+                  <h3 className="text-2xl font-black text-white mb-6 flex items-center gap-3"><BarChart3 className="text-blue-500" /> Vetted Partner Matches</h3>
                   <div className="space-y-6">
                     {matches.icp_matches.map((match, idx) => (
-                      <div key={idx} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col lg:flex-row gap-10 items-center hover:border-blue-400 transition-all relative overflow-hidden">
+                      <div key={idx} className="bg-slate-900 p-10 rounded-[3rem] border border-slate-800 shadow-sm flex flex-col lg:flex-row gap-10 items-center hover:border-blue-500/50 transition-all relative overflow-hidden group">
                         <div className="flex-1 text-left">
                           <div className="flex items-center gap-4 mb-3">
-                             <h4 className="font-black text-3xl text-slate-900 tracking-tight">{match.company_name}</h4>
-                             
-                             {/* IL BADGE DORATO PER I PARTNER REALI */}
+                             <h4 className="font-black text-3xl text-white tracking-tight group-hover:text-blue-400 transition-colors">{match.company_name}</h4>
                              {match.is_verified && (
-                               <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-3 py-1 rounded-full border border-amber-200 text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                 <Zap size={12} fill="currentColor" /> VETTED PARTNER
+                               <div className="flex items-center gap-1 bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full border border-amber-500/20 text-[10px] font-black uppercase tracking-widest">
+                                 <Zap size={12} fill="currentColor" /> VETTED
                                </div>
-                             )}
-
-                             {match.website && (
-                               <a href={match.website} target="_blank" rel="noreferrer" className="p-2 bg-slate-50 text-slate-400 hover:text-blue-600 rounded-full transition-all">
-                                 <ExternalLink size={14} />
-                               </a>
                              )}
                           </div>
                           <p className="text-sm font-bold text-blue-500 mb-5 tracking-wide uppercase">📍 {match.country} • {match.sector}</p>
-                          <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 mb-6 italic text-sm text-slate-600">
-                             "{match.why_they_match}"
-                          </div>
-                          <div className="grid grid-cols-2 gap-6 text-[11px] font-bold text-slate-500">
-                             <div><span className="text-[9px] font-black text-slate-300 uppercase block mb-1">Target Person</span>{match.decision_maker_title}</div>
-                             <div><span className="text-[9px] font-black text-slate-300 uppercase block mb-1">Buying Trigger</span>{match.buying_trigger}</div>
+                          <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-800 mb-6 italic text-sm text-slate-400">"{match.why_they_match}"</div>
+                          <div className="grid grid-cols-2 gap-6 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">
+                             <div><span className="text-slate-600 block mb-1">Target Person</span>{match.decision_maker_title}</div>
+                             <div><span className="text-slate-600 block mb-1">Buying Trigger</span>{match.buying_trigger}</div>
                           </div>
                         </div>
 
-                        {/* ANALYTICAL SCORES */}
-                        <div className="w-full lg:w-48 flex flex-col gap-4 border-l border-slate-50 lg:pl-10">
-                          <div className="bg-green-50 text-green-700 p-5 rounded-[2rem] border border-green-100 text-center">
+                        {/* MATCH MATRIX BREAKDOWN */}
+                        <div className="w-full lg:w-48 flex flex-col gap-4 border-l border-slate-800 lg:pl-10">
+                          <div className="bg-green-500/10 text-green-500 p-5 rounded-[2rem] border border-green-500/20 text-center">
                             <div className="text-3xl font-black flex items-center justify-center tracking-tighter"><Percent size={22} strokeWidth={4} />{match.scores.overall}</div>
                           </div>
-                          
-                          <div className="space-y-3 px-1">
-                            {Object.entries(match.scores).map(([key, val]) => (
-                              key !== 'overall' && (
-                                <div key={key}>
-                                  <div className="flex justify-between text-[8px] font-black uppercase text-slate-400 mb-1"><span>{key.replace('_', ' ')}</span><span>{val}/25</span></div>
-                                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-blue-600 rounded-full" style={{ width: `${(val/25)*100}%` }}></div></div>
-                                </div>
-                              )
+                          <div className="space-y-3">
+                            {['product_fit', 'market_readiness', 'strategic_value', 'accessibility'].map((key) => (
+                              <div key={key}>
+                                <div className="flex justify-between text-[8px] font-black uppercase text-slate-500 mb-1"><span>{key.replace('_', ' ')}</span><span>{match.scores[key]}/25</span></div>
+                                <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${(match.scores[key]/25)*100}%` }}></div></div>
+                              </div>
                             ))}
                           </div>
-                          <button onClick={() => generateEmail(match)} className="w-full bg-slate-900 text-white text-[10px] font-black py-4 rounded-2xl hover:bg-blue-600 transition-all uppercase tracking-widest">CONNECT</button>
+                          <button onClick={() => generateEmail(match)} className="w-full bg-white text-slate-900 text-[10px] font-black py-4 rounded-2xl hover:bg-blue-500 hover:text-white transition-all uppercase tracking-widest">CONNECT</button>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* COMPETITORS & RISKS GRID */}
+                {/* COMPETITORS & RISKS (CARICATI DOPO) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="text-left">
-                    <h3 className="text-2xl font-black text-slate-800 mb-6">Competitor Battlecards</h3>
-                    <div className="space-y-4">
-                      {matches.competitor_intelligence.map((comp, idx) => (
-                        <div key={idx} className="bg-white p-7 rounded-[2.5rem] border-l-8 border-l-red-500 border border-slate-100 shadow-sm">
-                           <div className="flex justify-between items-start mb-2"><h4 className="font-black text-lg">{comp.company_name}</h4><span className="text-[9px] font-black bg-red-50 text-red-600 px-2 py-1 rounded-md">{comp.threat_level}</span></div>
-                           <p className="text-[11px] text-slate-400 font-bold mb-4 uppercase">{comp.country} • {comp.what_they_sell}</p>
-                           <div className="bg-red-50/50 p-4 rounded-2xl text-xs font-bold text-red-900">Gap: {comp.weakness}</div>
-                        </div>
-                      ))}
-                    </div>
+                    <h3 className="text-2xl font-black text-white mb-6">Competitor Intelligence</h3>
+                    {matches.competitor_intelligence.length > 0 ? (
+                      <div className="space-y-4">
+                        {matches.competitor_intelligence.map((comp, idx) => (
+                          <div key={idx} className="bg-slate-900 p-7 rounded-[2.5rem] border-l-4 border-l-red-500 border border-slate-800">
+                             <div className="flex justify-between items-start mb-2"><h4 className="font-black text-lg text-white">{comp.company_name}</h4><span className="text-[9px] font-black bg-red-500/10 text-red-500 px-2 py-1 rounded-md">{comp.threat_level}</span></div>
+                             <p className="text-[11px] text-slate-500 font-bold mb-4 uppercase">{comp.country} • {comp.what_they_sell}</p>
+                             <div className="bg-red-500/5 p-4 rounded-2xl text-xs font-bold text-red-200/70 border border-red-500/10">Gap: {comp.weakness}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="p-10 border border-dashed border-slate-800 rounded-[2.5rem] text-slate-600 text-center text-sm">Caricamento analisi competitiva...</div>}
                   </div>
+
                   <div className="text-left">
-                    <h3 className="text-2xl font-black text-slate-800 mb-6">Risk Assessment Radar</h3>
-                    <div className="space-y-4">
-                      {matches.risk_assessment.map((risk, idx) => (
-                        <div key={idx} className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                          <h4 className="text-sm font-black text-slate-800 uppercase mb-2">{risk.risk_title}</h4>
-                          <p className="text-xs text-slate-500 leading-tight mb-4">{risk.description}</p>
-                          <div className="bg-blue-50 p-3 rounded-xl text-[11px] font-bold text-blue-900 leading-tight">Fix: {risk.mitigation}</div>
-                        </div>
-                      ))}
-                    </div>
+                    <h3 className="text-2xl font-black text-white mb-6">Risk Assessment Radar</h3>
+                    {matches.risk_assessment.length > 0 ? (
+                      <div className="space-y-4">
+                        {matches.risk_assessment.map((risk, idx) => (
+                          <div key={idx} className="bg-slate-900 p-7 rounded-[2.5rem] border border-slate-800">
+                            <h4 className="text-sm font-black text-white uppercase mb-2 flex items-center gap-2"><AlertTriangle size={14} className="text-amber-500"/> {risk.risk_title}</h4>
+                            <p className="text-xs text-slate-500 leading-relaxed mb-4">{risk.description}</p>
+                            <div className="bg-blue-500/5 p-3 rounded-xl text-[11px] font-bold text-blue-400 border border-blue-500/10">Fix: {risk.mitigation}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <div className="p-10 border border-dashed border-slate-800 rounded-[2.5rem] text-slate-600 text-center text-sm">Caricamento valutazione rischi...</div>}
                   </div>
                 </div>
-
               </div>
             ) : (
-              <div className="h-full min-h-[600px] flex flex-col items-center justify-center bg-white rounded-[4rem] border-2 border-dashed border-slate-200 text-center p-20 shadow-inner">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 text-slate-200 animate-bounce"><LayoutDashboard size={40} /></div>
-                <h3 className="text-4xl font-black text-slate-800 mb-4 tracking-tighter">Ready to Scale?</h3>
-                <p className="text-slate-400 max-w-sm font-medium text-lg">Input your startup profile. Orbit AI GPT-5.4 will synthesize a complete GTM Hybrid Report.</p>
+              <div className="h-full min-h-[600px] flex flex-col items-center justify-center bg-slate-900/30 rounded-[4rem] border-2 border-dashed border-slate-800 text-center p-20">
+                <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 text-slate-700 animate-pulse"><LayoutDashboard size={40} /></div>
+                <h3 className="text-4xl font-black text-white mb-4 tracking-tighter">Ready to Scale?</h3>
+                <p className="text-slate-500 max-w-sm font-medium text-lg">Inserisci il profilo della startup. L'AI genererà un report GTM completo caricando i dati in tempo reale.</p>
               </div>
             )}
           </div>
         </div>
       </main>
 
-      {/* MODALE REGISTRAZIONE PARTNER (JOIN ECOSYSTEM) */}
       <RegisterPartner isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
 
-      {/* AI OUTREACH MODAL */}
+      {/* OUTREACH MODAL */}
       {selectedPartner && (
-        <div className="fixed inset-0 bg-slate-900/95 backdrop-blur-xl z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3.5rem] shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300 overflow-hidden">
-            <div className="p-10 border-b flex justify-between items-center bg-slate-50/50">
-              <div className="text-left"><h3 className="text-2xl font-black text-slate-800 italic uppercase">Outreach Engine</h3><p className="text-[10px] font-black text-slate-400 uppercase">To: {selectedPartner.company_name}</p></div>
-              <button onClick={() => setSelectedPartner(null)} className="text-slate-300 hover:text-slate-800 text-2xl font-bold">✕</button>
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-[3.5rem] border border-slate-800 shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="p-10 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
+              <div className="text-left"><h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Outreach Engine</h3><p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">To: {selectedPartner.company_name}</p></div>
+              <button onClick={() => setSelectedPartner(null)} className="text-slate-500 hover:text-white text-2xl font-bold">✕</button>
             </div>
             <div className="p-10 overflow-y-auto flex-1 text-left">
               {isGeneratingEmail ? (
-                <div className="space-y-4 animate-pulse"><div className="h-4 bg-slate-100 rounded w-1/4"></div><div className="h-24 bg-slate-50 rounded-3xl w-full"></div></div>
+                <div className="space-y-4 animate-pulse"><div className="h-4 bg-slate-800 rounded w-1/4"></div><div className="h-40 bg-slate-800/50 rounded-3xl w-full"></div></div>
               ) : (
-                <pre className="whitespace-pre-wrap font-mono text-xs text-slate-700 bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 leading-relaxed shadow-inner">{emailContent}</pre>
+                <pre className="whitespace-pre-wrap font-mono text-xs text-slate-300 bg-slate-950 p-8 rounded-[2.5rem] border border-slate-800 leading-relaxed shadow-inner">{emailContent}</pre>
               )}
             </div>
-            <div className="p-10 bg-slate-50 border-t flex gap-4">
-              <button onClick={() => { navigator.clipboard.writeText(emailContent); toast.success("Draft copied!"); }} className="flex-1 bg-blue-600 text-white py-6 rounded-[1.5rem] font-black hover:bg-blue-700 shadow-xl active:scale-95 uppercase tracking-widest text-sm">COPY DRAFT</button>
-              <button onClick={() => setSelectedPartner(null)} className="px-10 py-6 text-slate-400 font-black uppercase text-[10px]">Close</button>
+            <div className="p-10 border-t border-slate-800 flex gap-4">
+              <button onClick={() => { navigator.clipboard.writeText(emailContent); toast.success("Copiato!"); }} className="flex-1 bg-blue-600 text-white py-6 rounded-[1.5rem] font-black hover:bg-blue-500 transition-all uppercase tracking-widest text-sm">COPY DRAFT</button>
+              <button onClick={() => setSelectedPartner(null)} className="px-10 py-6 text-slate-500 font-black uppercase text-[10px] hover:text-white">Close</button>
             </div>
           </div>
         </div>
