@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/register-partner.js": {
+      "maxDuration": 10
+    }
+  }
+}
