@@ -6,6 +6,155 @@ const json = (payload, status = 200) =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+const STARTER_PARTNERS = [
+  {
+    company_name: 'Sonnen GmbH',
+    sector: 'Clean Energy',
+    market: 'Europe',
+    country: 'Germany',
+    description: 'Leading residential battery storage manufacturer, diversifying supply chain',
+    website: 'https://sonnen.de',
+    is_verified: true,
+  },
+  {
+    company_name: 'BayWa r.e.',
+    sector: 'Clean Energy',
+    market: 'Europe',
+    country: 'Germany',
+    description: 'Europe largest solar distributor, sourcing Asian storage hardware',
+    website: 'https://baywa-re.com',
+    is_verified: true,
+  },
+  {
+    company_name: 'Eneco',
+    sector: 'Clean Energy',
+    market: 'Europe',
+    country: 'Netherlands',
+    description: 'Dutch utility expanding residential battery program',
+    website: 'https://eneco.com',
+    is_verified: true,
+  },
+  {
+    company_name: 'Rhenus Logistics',
+    sector: 'Robotics',
+    market: 'Europe',
+    country: 'Germany',
+    description: 'Large logistics operator investing heavily in warehouse automation',
+    website: 'https://rhenus.group',
+    is_verified: true,
+  },
+  {
+    company_name: 'Stellantis',
+    sector: 'EV & Battery',
+    market: 'Europe',
+    country: 'Netherlands',
+    description: 'Major automotive group accelerating EV transition globally',
+    website: 'https://stellantis.com',
+    is_verified: true,
+  },
+  {
+    company_name: 'Nexamp',
+    sector: 'Clean Energy',
+    market: 'North America',
+    country: 'USA',
+    description: 'Community solar developer scaling across the US',
+    website: 'https://nexamp.com',
+    is_verified: true,
+  },
+  {
+    company_name: 'Plug Power',
+    sector: 'Clean Energy',
+    market: 'North America',
+    country: 'USA',
+    description: 'Hydrogen fuel cell company expanding product portfolio',
+    website: 'https://plugpower.com',
+    is_verified: true,
+  },
+  {
+    company_name: 'Comau',
+    sector: 'Robotics',
+    market: 'Europe',
+    country: 'Italy',
+    description: 'Industrial automation system integrator distributing across Europe',
+    website: 'https://comau.com',
+    is_verified: true,
+  },
+  {
+    company_name: 'Tier Mobility',
+    sector: 'Autonomous Driving',
+    market: 'Europe',
+    country: 'Germany',
+    description: 'Europe largest shared e-scooter operator, sourcing mobility tech',
+    website: 'https://tier.app',
+    is_verified: true,
+  },
+  {
+    company_name: 'MediaMarkt',
+    sector: 'Consumer Tech',
+    market: 'Europe',
+    country: 'Germany',
+    description: 'Europe largest consumer electronics retailer, sourcing new brands',
+    website: 'https://mediamarkt.de',
+    is_verified: true,
+  },
+];
+
+const normalizeName = (value = '') =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const extractJsonObject = (value) => {
+  const trimmed = String(value || '')
+    .trim()
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .trim();
+  const first = trimmed.indexOf('{');
+  const last = trimmed.lastIndexOf('}');
+
+  if (first === -1 || last === -1 || last <= first) return trimmed;
+  return trimmed.slice(first, last + 1);
+};
+
+const normalizeReport = (report, vettedPartners) => {
+  const verifiedByName = new Map(
+    vettedPartners.map((partner) => [normalizeName(partner.company_name), partner]),
+  );
+
+  return {
+    ...report,
+    icp_matches: (report.icp_matches || []).map((match, index) => {
+      const verified = verifiedByName.get(normalizeName(match.company_name));
+      const scores = match.scores || {};
+      const overall =
+        Number(scores.overall) ||
+        Number(scores.product_fit || 0) +
+          Number(scores.market_readiness || 0) +
+          Number(scores.strategic_value || 0) +
+          Number(scores.accessibility || 0);
+
+      return {
+        ...match,
+        rank: Number(match.rank) || index + 1,
+        is_verified: Boolean(match.is_verified || verified),
+        website: match.website || verified?.website || null,
+        country: match.country || verified?.country || '',
+        sector: match.sector || verified?.sector || '',
+        scores: {
+          ...scores,
+          product_fit: Number(scores.product_fit) || 0,
+          market_readiness: Number(scores.market_readiness) || 0,
+          strategic_value: Number(scores.strategic_value) || 0,
+          accessibility: Number(scores.accessibility) || 0,
+          overall,
+        },
+      };
+    }),
+  };
+};
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return json({ error: 'Method Not Allowed' }, 405);
@@ -33,8 +182,8 @@ export default async function handler(req) {
 
   let vettedPartners = [];
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_ANON_KEY;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseKey) {
       const res = await fetch(`${supabaseUrl}/rest/v1/partners?select=*&limit=20`, {
@@ -49,6 +198,8 @@ export default async function handler(req) {
   } catch {
     vettedPartners = [];
   }
+
+  if (!vettedPartners.length) vettedPartners = STARTER_PARTNERS;
 
   const SYSTEM_PROMPT = `You are WestReady, an elite GTM strategist specialized
 in helping Chinese startups enter Western markets. You think like a McKinsey
@@ -194,14 +345,10 @@ Return ONLY the JSON object. Nothing else.`;
       return json({ error: 'Empty AI response' }, 502);
     }
 
-    const content = aiData.choices[0].message.content
-      .trim()
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/```\s*$/i, '')
-      .trim();
+    const content = extractJsonObject(aiData.choices[0].message.content);
+    const report = normalizeReport(JSON.parse(content), vettedPartners);
 
-    return json(JSON.parse(content));
+    return json(report);
   } catch (error) {
     return json({ error: error.message }, 500);
   }

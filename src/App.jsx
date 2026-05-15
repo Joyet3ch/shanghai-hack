@@ -129,6 +129,16 @@ const withProtocol = (url) => {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 };
 
+const readJsonResponse = async (response) => {
+  const text = await response.text();
+
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Server returned non-JSON response (${response.status}). Please refresh and try again.`);
+  }
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('landing');
@@ -197,7 +207,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) {
         toast.error(data.error || 'Generation failed');
@@ -239,7 +249,7 @@ export default function App() {
           whyTheyMatch: partner.why_they_match,
         }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) throw new Error(data.error || 'Email generation failed');
       setEmailContent(data.text);
@@ -277,7 +287,7 @@ export default function App() {
         },
         body: JSON.stringify(payload),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
 
       if (!response.ok) throw new Error(data.error || 'Partner registration failed');
 
@@ -722,7 +732,7 @@ function MatchCard({ partner, index, onEmail }) {
             )}
           </div>
           <p>
-            {partner.country || 'Western market'} · {partner.sector || 'Sector'} · {partner.company_size || 'Company size n/a'}
+            {partner.country || 'Western market'} - {partner.sector || 'Sector'} - {partner.company_size || 'Company size n/a'}
           </p>
         </div>
         <div className="bm-match-score">
@@ -917,7 +927,7 @@ function RiskSection({ risks }) {
                     <span className={`bm-badge severity-${severity}`}>{risk.severity || 'Medium'}</span>
                   </div>
                   <p>
-                    {risk.risk_type} · Probability: {risk.probability}
+                    {risk.risk_type} - Probability: {risk.probability}
                   </p>
                 </div>
                 <span className="bm-rank">#{risk.rank || index + 1}</span>
