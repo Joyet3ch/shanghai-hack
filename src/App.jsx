@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 function App() {
   const [inputDato, setInputDato] = useState('');
@@ -7,15 +8,26 @@ function App() {
 
   const gestisciInvio = async (e) => {
     e.preventDefault();
-    if (!inputDato) return;
+    
+    // Gestione errore: campo vuoto
+    if (!inputDato) {
+      toast.error('Per favore, scrivi qualcosa nel prompt!');
+      return;
+    }
 
     setIsLoading(true);
     
-    // MOCK DELLA CHIAMATA API (Simuliamo l'attesa di Orbit AI)
+    // Notifica opzionale di caricamento
+    toast.info('Sto analizzando la richiesta...');
+
+    // MOCK DELLA CHIAMATA API
     setTimeout(() => {
       setRispostaIA(`Questa è una risposta simulata per: "${inputDato}". Quando avrai il tema dell'hackathon e la chiave API, sostituiremo questo timeout con la chiamata reale!`);
       setIsLoading(false);
       setInputDato('');
+      
+      // Notifica di successo
+      toast.success('Risposta generata con successo!');
     }, 1500);
   };
 
