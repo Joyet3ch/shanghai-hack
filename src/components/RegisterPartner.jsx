@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import { X, Building2, Globe2, Briefcase, CheckCircle2 } from 'lucide-react';
+import { X, Building2, Globe2, Briefcase, CheckCircle2, Link2 } from 'lucide-react';
 
 export default function RegisterPartner({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     company_name: '',
     sector: 'Robotics',
-    country: '',
+    country: 'Europe', // Valore di default
     website: '',
     description: ''
   });
@@ -20,7 +20,10 @@ export default function RegisterPartner({ isOpen, onClose }) {
     setLoading(true);
 
     try {
-      // Inserimento diretto nella tabella 'partners' di Supabase
+      // Pulizia minima del sito: se l'utente non mette nulla, lasciamo vuoto
+      // Se scrive "sito.com", lo salviamo così com'è.
+      const cleanedWebsite = formData.website.trim();
+
       const { error } = await supabase
         .from('partners')
         .insert([
@@ -28,20 +31,19 @@ export default function RegisterPartner({ isOpen, onClose }) {
             company_name: formData.company_name,
             sector: formData.sector,
             country: formData.country,
-            website: formData.website,
-            why_they_match: formData.description, // Usiamo questo campo per la descrizione
-            is_verified: true // Essendo una registrazione ufficiale, lo segniamo come verificato
+            website: cleanedWebsite,
+            why_they_match: formData.description,
+            is_verified: true
           }
         ]);
 
       if (error) throw error;
 
-      toast.success('Registration successful! You are now a BridgeMatch partner.');
-      setFormData({ company_name: '', sector: 'Robotics', country: '', website: '', description: '' });
+      toast.success('Registration successful!');
       onClose();
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Failed to register: ' + error.message);
+      toast.error('DB Error: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -49,7 +51,7 @@ export default function RegisterPartner({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 text-left">
         
         <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
           <div>
@@ -74,12 +76,14 @@ export default function RegisterPartner({ isOpen, onClose }) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Country</label>
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Region</label>
               <div className="relative">
                 <Globe2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                <input required value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
-                  placeholder="e.g. Germany" />
+                <select value={formData.country} onChange={e => setFormData({...formData, country: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-white outline-none focus:border-blue-500 appearance-none transition-all">
+                  <option value="Europe">Europe</option>
+                  <option value="North America">North America</option>
+                </select>
               </div>
             </div>
           </div>
@@ -98,17 +102,20 @@ export default function RegisterPartner({ isOpen, onClose }) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Website URL</label>
-            <input type="url" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})}
-              className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
-              placeholder="https://www.company.com" />
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Website (e.g. site.com)</label>
+            <div className="relative">
+              <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+              <input type="text" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})}
+                className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
+                placeholder="mysite.com" />
+            </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Partnership Value Prop</label>
             <textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
               className="w-full h-24 bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 text-sm font-medium text-white outline-none resize-none focus:border-blue-500 transition-all"
-              placeholder="What kind of startups are you looking to partner with?" />
+              placeholder="What are you looking for?" />
           </div>
 
           <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-[1.5rem] shadow-xl shadow-blue-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-4">
