@@ -4,7 +4,7 @@ import { toast, Toaster } from 'sonner';
 import { 
   Building2, Globe2, Briefcase, Cpu, CheckCircle2, 
   ArrowRight, Loader2, Mail, LayoutDashboard, ChevronRight,
-  TrendingUp, Target, ShieldAlert, LogIn, LogOut, Rocket, BarChart3, Zap
+  TrendingUp, Target, ShieldAlert, LogIn, LogOut, Rocket, BarChart3, Zap, X
 } from 'lucide-react';
 import RegisterPartner from './components/RegisterPartner'; 
 
