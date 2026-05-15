@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { toast } from 'sonner';
 import { LayoutDashboard, Globe, Factory, Send, LogOut, Cpu, Zap, Car } from 'lucide-react';
-import Auth from './components/Auth';
-import Landing from './components/Landing';
+import Auth from './components/auth';
+import Landing from './components/landing';
 
 function App() {
   const [session, setSession] = useState(null);
