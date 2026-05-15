@@ -6,7 +6,7 @@ import {
   ArrowRight, Loader2, Mail, LayoutDashboard, ChevronRight,
   TrendingUp, Target, ShieldAlert, LogIn, LogOut, Rocket, BarChart3, Zap
 } from 'lucide-react';
-import RegisterPartner from './RegisterPartner'; 
+import RegisterPartner from './components/RegisterPartner'; 
 
 const MATCH_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/match';
 const EMAIL_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/email';
