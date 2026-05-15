@@ -13,6 +13,7 @@ const EMAIL_API_URL = 'https://trgrzufskkbkazprltub.supabase.co/functions/v1/ema
 
 export default function App() {
   // Stati di Navigazione & Utente
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [user, setUser] = useState(null);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -51,8 +52,7 @@ export default function App() {
   };
 
   const handleLogin = () => {
-    // Sostituisci con la tua logica o modale di login, per ora apre il configuratore se non hai una pagina auth
-    toast.info("Login modal/page should open here!");
+  setIsAuthOpen(true);
   };
 
   // CHIAMATE AI (Supabase Edge Functions)
@@ -439,6 +439,75 @@ export default function App() {
 
       {/* MODAL REGISTRAZIONE */}
       <RegisterPartner isOpen={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
+    </div>
+  );
+}
+function AuthModal({ isOpen, onClose }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleAuth = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        toast.success("Account creato! Controlla la mail o fai login.");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast.success("Bentornato!");
+        onClose();
+      }
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] shadow-2xl p-8 animate-in zoom-in duration-300">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-white">
+            {isSignUp ? 'Create Account' : 'Welcome Back'}
+          </h2>
+          <button onClick={onClose} className="text-slate-500 hover:text-white"><X size={24} /></button>
+        </div>
+
+        <form onSubmit={handleAuth} className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
+            <input required type="email" value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
+              placeholder="name@company.com" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Password</label>
+            <input required type="password" value={password} onChange={e => setPassword(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all"
+              placeholder="••••••••" />
+          </div>
+          
+          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-[1.5rem] shadow-xl transition-all disabled:opacity-50 mt-4">
+            {loading ? 'PROCESSING...' : (isSignUp ? 'SIGN UP' : 'SIGN IN')}
+          </button>
+        </form>
+
+        <button 
+          onClick={() => setIsSignUp(!isSignUp)}
+          className="w-full mt-6 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:text-blue-400 transition-colors"
+        >
+          {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+        </button>
+      </div>
     </div>
   );
 }
