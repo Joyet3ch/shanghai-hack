@@ -17,8 +17,8 @@ import {
   Search,
   MessageSquareQuote
 } from 'lucide-react';
-import Auth from './components/Auth';
-import Landing from './components/Landing';
+import Auth from './components/auth';
+import Landing from './components/landing';
 
 function App() {
   // --- STATI DI AUTENTICAZIONE ---
