@@ -20,8 +20,8 @@ import {
   AlertTriangle,
   Calendar
 } from 'lucide-react';
-import Auth from './components/Auth';
-import Landing from './components/Landing';
+import Auth from './components/auth';
+import Landing from './components/landing';
 
 function App() {
   const [session, setSession] = useState(null);
