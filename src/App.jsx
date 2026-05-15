@@ -24,13 +24,13 @@ export default function App() {
   const [selectedPartner, setSelectedPartner] = useState(null);
 
   const [formData, setFormData] = useState({
-    company_name: 'Voltiq Energy Technology',
-    target_market: 'Europe',
-    company_stage: 'Growth',
-    sector: 'New Energy Vehicles & Battery Tech',
-    business_model: 'B2B',
-    biggest_concern: 'Finding trusted local distributors',
-    product_description: 'Modular LFP battery packs with AI-optimized BMS for residential and commercial solar+storage partners, enabling installers to deploy safer, scalable energy storage solutions.'
+    company_name: '',
+    target_market: '',
+    company_stage: '',
+    sector: '',
+    business_model: '',
+    biggest_concern: '',
+    product_description: ''
   });
 
   useEffect(() => {
