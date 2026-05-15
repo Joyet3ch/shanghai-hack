@@ -1,19 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+const { createClient } = require('@supabase/supabase-js');
 
-// Inizializzazione client
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+module.exports = async (req, res) => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export default async function handler(req, res) {
-  // Permetti solo richieste POST
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("ERRORE: Variabili Supabase mancanti!");
+    return res.status(500).json({ error: "Configuration Error" });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { company_name, sector, market, description, website, contact_email } = req.body;
-
   try {
+    const { company_name, sector, market, description, website, contact_email } = req.body;
+
     const { data, error } = await supabase
       .from('partners')
       .insert([
@@ -24,18 +28,16 @@ export default async function handler(req, res) {
           description, 
           website, 
           contact_email,
-          is_verified: true // Li marchiamo come verificati di default per la demo
+          is_verified: true 
         }
-      ]);
+      ])
+      .select();
 
-    if (error) {
-      console.error("Errore Supabase:", error);
-      return res.status(500).json({ error: error.message });
-    }
+    if (error) throw error;
 
     return res.status(200).json({ message: 'Success', data });
   } catch (err) {
-    console.error("Errore Server:", err);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Crash funzione:", err.message);
+    return res.status(500).json({ error: err.message });
   }
-}
+};
