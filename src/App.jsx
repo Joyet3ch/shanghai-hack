@@ -161,6 +161,69 @@ const readJsonResponse = async (response) => {
   }
 };
 
+const EMPTY_VALUES = new Set(['', 'n/a', 'na', 'none', 'null', 'undefined', 'not available', 'not publicly disclosed']);
+
+const hasContent = (value) => {
+  if (Array.isArray(value)) return value.some(hasContent);
+  if (value && typeof value === 'object') return Object.values(value).some(hasContent);
+  return !EMPTY_VALUES.has(String(value ?? '').trim().toLowerCase());
+};
+
+const withFallbackText = (value, fallback) => (hasContent(value) ? value : fallback);
+
+const ensureList = (items, fallbacks, min = 3) => {
+  const cleaned = Array.isArray(items) ? items.filter(hasContent) : [];
+  const merged = [...cleaned, ...fallbacks.filter(hasContent)];
+  return merged.slice(0, Math.max(min, cleaned.length));
+};
+
+const ACTION_FALLBACKS = [
+  'Validate the top compliance blockers with one local advisor before broad partner outreach.',
+  'Build a shortlist of 20 country-specific accounts and map procurement, technical, and partnership owners.',
+  'Package a low-risk pilot offer with technical dossier, support SLA, warranty terms, and success metrics.',
+];
+
+const normalizeWeeksForUi = (weeks) => {
+  const source = weeks.length ? weeks : [
+    {
+      period: 'Week 1-2',
+      theme: 'Country Proof & Compliance',
+      actions: ACTION_FALLBACKS,
+      milestone: 'The first country, compliance path, and buyer segment are clear.',
+    },
+    {
+      period: 'Week 3-4',
+      theme: 'Partner Targeting',
+      actions: [
+        'Segment distributors, integrators, strategic buyers, and reference customers by urgency.',
+        'Write one outreach angle for procurement, one for technical teams, and one for partnerships.',
+        'Prepare objection handling around certification, warranty, delivery, and local service.',
+      ],
+      milestone: 'The first outbound list and proof materials are ready.',
+    },
+    {
+      period: 'Week 5-6',
+      theme: 'Pilot Conversion',
+      actions: [
+        'Launch outreach to the highest-fit accounts and track objections by category.',
+        'Run technical discovery calls with qualified buyers and refine the pilot scope.',
+        'Identify one local channel or service partner to reduce execution risk.',
+      ],
+      milestone: 'At least five qualified conversations are active.',
+    },
+  ];
+
+  return source.map((week, index) => ({
+    ...week,
+    period: withFallbackText(week.period, `Week ${index * 2 + 1}-${index * 2 + 2}`),
+    theme: withFallbackText(week.theme, 'Market Entry Execution'),
+    actions: ensureList(week.actions, ACTION_FALLBACKS, 3),
+    milestone: withFallbackText(week.milestone, 'A measurable market-entry decision is ready for the next stage.'),
+    cost_estimate: week.cost_estimate || '',
+    key_contact_type: week.key_contact_type || '',
+  }));
+};
+
 const normalizeReportForUi = (report) => {
   if (!report) return report;
 
@@ -202,6 +265,7 @@ const normalizeReportForUi = (report) => {
           milestone: 'Pilot structure and next-step GTM plan are ready.',
         },
       ].filter(Boolean);
+  const normalizedWeeks = normalizeWeeksForUi(weeks);
 
   return {
     ...report,
@@ -219,10 +283,13 @@ const normalizeReportForUi = (report) => {
     action_plan: {
       ...actionPlan,
       market_entry_timeline: actionPlan.market_entry_timeline || '90 days',
-      weeks,
+      weeks: normalizedWeeks,
+      critical_path:
+        actionPlan.critical_path ||
+        'Keep the first country, first buyer segment, and compliance path tightly linked until a real pilot is in motion.',
       first_action_tomorrow:
         actionPlan.first_action_tomorrow ||
-        weeks[0]?.actions?.[0] ||
+        normalizedWeeks[0]?.actions?.[0] ||
         'Validate the first partner target and compliance blocker before broad outreach.',
     },
     icp_matches: (report.icp_matches || []).map((partner, index) => ({
@@ -231,10 +298,30 @@ const normalizeReportForUi = (report) => {
       buying_signal_status: partner.buying_signal_status || (index < 2 ? 'warm' : 'cool'),
       company_size: partner.company_size || 'Size not disclosed',
       city: partner.city || '',
-      what_they_are_replacing: partner.what_they_are_replacing || '',
-      why_they_might_say_no: partner.why_they_might_say_no || '',
-      how_to_overcome_it: partner.how_to_overcome_it || '',
-      reference_value: partner.reference_value || '',
+      why_they_match: withFallbackText(
+        partner.why_they_match,
+        `${partner.company_name || 'This account'} is a plausible early partner because it operates in the selected country and sector. Lead with proof, support coverage, and a narrow pilot instead of a broad supplier pitch.`,
+      ),
+      buying_trigger: withFallbackText(
+        partner.buying_trigger,
+        'Supplier diversification, compliance pressure, and demand for lower-risk pilots create the opening conversation.',
+      ),
+      what_they_are_replacing: withFallbackText(
+        partner.what_they_are_replacing,
+        'An incumbent supplier, manual procurement process, or less flexible local solution.',
+      ),
+      why_they_might_say_no: withFallbackText(
+        partner.why_they_might_say_no,
+        'They may worry about certification, warranty, support coverage, and supplier continuity.',
+      ),
+      how_to_overcome_it: withFallbackText(
+        partner.how_to_overcome_it,
+        'Open with certification evidence, local support plan, warranty terms, and a low-risk pilot structure.',
+      ),
+      reference_value: withFallbackText(
+        partner.reference_value,
+        'A credible local reference that makes the next wave of partner outreach easier.',
+      ),
       first_move:
         partner.first_move ||
         `Send a concise outreach note to ${partner.company_name} with a technical dossier and pilot proposal.`,
@@ -255,9 +342,14 @@ const normalizeReportForUi = (report) => {
       who_they_target: competitor.who_they_target || 'Western enterprise and channel buyers',
       positioning: competitor.positioning || 'Established Western-market competitor with stronger local trust.',
       pricing_signal: competitor.pricing_signal || null,
-      recent_news: competitor.recent_news || '',
-      customer_complaints: competitor.customer_complaints || '',
-      how_to_beat_them: competitor.how_to_beat_them || '',
+      what_they_sell: withFallbackText(competitor.what_they_sell, 'Competing products or services in the selected market.'),
+      weakness: withFallbackText(
+        competitor.weakness,
+        'Less flexibility on customization, pilot economics, or country-specific support.',
+      ),
+      recent_news: withFallbackText(competitor.recent_news, 'Track recent funding, product launches, tenders, and expansion signals before outreach.'),
+      customer_complaints: withFallbackText(competitor.customer_complaints, 'Likely buyer frustration areas include price, responsiveness, integration effort, or support quality.'),
+      how_to_beat_them: withFallbackText(competitor.how_to_beat_them, 'Win with a narrower pilot, stronger economics, faster customization, and clearer risk controls.'),
       threat_level: competitor.threat_level || 'Medium',
     })),
     risk_assessment: (report.risk_assessment || []).map((risk, index) => ({
@@ -266,7 +358,11 @@ const normalizeReportForUi = (report) => {
       risk_type: risk.risk_type || 'Operational',
       severity: risk.severity || 'Medium',
       probability: risk.probability || 'Medium',
+      description: withFallbackText(risk.description, 'This risk can slow early partner trust if it is not addressed before outreach.'),
+      mitigation: withFallbackText(risk.mitigation, 'Turn the risk into a checklist, assign an owner, and validate it with a local expert or buyer.'),
       cost_of_ignoring: risk.cost_of_ignoring || 'Delayed market entry and weaker partner conversion.',
+      early_warning_sign: withFallbackText(risk.early_warning_sign, 'Qualified prospects ask for proof that is not ready yet.'),
+      timeline_to_impact: withFallbackText(risk.timeline_to_impact, 'Usually visible within the first 30-60 days of serious outreach.'),
     })),
   };
 };
@@ -695,8 +791,21 @@ function ProfileForm({ formData, setFormData, loading, matches, onGenerate }) {
   return (
     <form className="bm-panel bm-profile-form" onSubmit={onGenerate}>
       <div className="bm-panel-title">
-        <Target size={16} />
-        <h2>Company Profile</h2>
+        <div className="bm-title-icon">
+          <Target size={18} />
+        </div>
+        <div>
+          <span>Shanghai Night Ops</span>
+          <h2>Company Profile</h2>
+        </div>
+      </div>
+
+      <div className="bm-profile-status">
+        <span>
+          <i />
+          AI live
+        </span>
+        <span>Country scoring</span>
       </div>
 
       <Field label="Company Name">
@@ -787,7 +896,7 @@ function ProfileForm({ formData, setFormData, loading, matches, onGenerate }) {
         {loading ? (
           <>
             <Loader2 className="bm-spin" size={16} />
-            Generating
+            Mapping markets
           </>
         ) : (
           <>
@@ -849,14 +958,20 @@ function RegisteredPartners({ partners }) {
 function SummaryCard({ summary }) {
   const score = clamp(summary?.market_readiness_score || 0);
   const animatedScore = useCounter(score);
-  const criticalInsight = useTyping(summary?.critical_insight || '', 18);
+  const criticalInsight = useTyping(
+    withFallbackText(
+      summary?.critical_insight,
+      'Focus the first market entry move on one country, one buyer segment, and one proof-backed pilot.',
+    ),
+    18,
+  );
 
   return (
     <section className="bm-summary">
       <div>
         <span className="bm-label">Market Entry Intelligence Report</span>
         <h2>{summary?.name || 'Company Summary'}</h2>
-        <p>{summary?.one_line_pitch}</p>
+        <p>{withFallbackText(summary?.one_line_pitch, 'A focused Western market entry brief is ready for partner targeting and execution planning.')}</p>
         <div className="bm-insight">
           <ShieldAlert size={14} />
           <span>{criticalInsight}</span>
@@ -1370,12 +1485,40 @@ function RiskSection({ risks }) {
 }
 
 function LoadingSkeletons() {
+  const phases = [
+    'Scanning live market signals',
+    'Ranking countries',
+    'Matching partner targets',
+    'Stress-testing risks',
+  ];
+
   return (
-    <div className="bm-skeletons">
-      <Skeleton height={80} />
-      <Skeleton height={140} />
-      <Skeleton height={140} />
-      <Skeleton height={120} />
+    <div className="bm-loading-screen">
+      <div className="bm-loading-core" aria-hidden="true">
+        <div className="bm-orbit-ring ring-one" />
+        <div className="bm-orbit-ring ring-two" />
+        <div className="bm-orbit-ring ring-three" />
+        <Target size={34} />
+      </div>
+      <div className="bm-loading-copy">
+        <span className="bm-label amber">Market Intelligence Engine</span>
+        <h2>Building your entry map</h2>
+        <p>Live signals, country scoring, buyer psychology, partner fit and execution risks are being assembled.</p>
+      </div>
+      <div className="bm-loading-phases">
+        {phases.map((phase, index) => (
+          <div key={phase} style={{ animationDelay: `${index * 0.22}s` }}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <p>{phase}</p>
+            <i />
+          </div>
+        ))}
+      </div>
+      <div className="bm-loading-grid">
+        <Skeleton height={76} />
+        <Skeleton height={76} />
+        <Skeleton height={76} />
+      </div>
     </div>
   );
 }
