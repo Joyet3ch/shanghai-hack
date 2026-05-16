@@ -23,6 +23,23 @@ import {
 
 const BUSINESS_MODELS = ['B2B', 'B2C', 'B2B2C', 'Marketplace'];
 const MARKETS = ['Europe', 'North America', 'Both'];
+const COUNTRIES = {
+  Europe: [
+    'Let AI Recommend',
+    'Germany',
+    'France',
+    'Netherlands',
+    'Italy',
+    'United Kingdom',
+    'Sweden',
+    'Norway',
+    'Spain',
+    'Belgium',
+    'Poland',
+  ],
+  'North America': ['Let AI Recommend', 'United States', 'Canada'],
+  Both: ['Let AI Recommend'],
+};
 const STAGES = ['Seed', 'Series A', 'Series B', 'Growth'];
 const SECTORS = [
   'New Energy Vehicles & Battery Tech',
@@ -47,6 +64,8 @@ const INITIAL_FORM = {
   company_name: '',
   product_description: '',
   business_model: '',
+  target_continent: 'Europe',
+  target_country: 'recommend',
   target_market: 'Europe',
   sector: '',
   company_stage: '',
@@ -146,6 +165,21 @@ const normalizeReportForUi = (report) => {
   if (!report) return report;
 
   const actionPlan = report.action_plan || {};
+  const countryRanking = report.country_ranking || null;
+  const rankings = Array.isArray(countryRanking?.rankings)
+    ? countryRanking.rankings.map((country, index) => ({
+        ...country,
+        overall_score: clamp(country.overall_score || country.score || 0),
+        rank: index + 1,
+        scores: {
+          market_size: Number(country.scores?.market_size) || 0,
+          competition_level: Number(country.scores?.competition_level) || 0,
+          regulatory_ease: Number(country.scores?.regulatory_ease) || 0,
+          cultural_receptiveness: Number(country.scores?.cultural_receptiveness) || 0,
+          infrastructure: Number(country.scores?.infrastructure) || 0,
+        },
+      }))
+    : [];
   const weeks = Array.isArray(actionPlan.weeks) && actionPlan.weeks.length
     ? actionPlan.weeks
     : [
@@ -171,6 +205,17 @@ const normalizeReportForUi = (report) => {
 
   return {
     ...report,
+    country_ranking: countryRanking
+      ? {
+          ...countryRanking,
+          recommended_country:
+            countryRanking.recommended_country ||
+            report.market_overview?.target_country ||
+            actionPlan.recommended_country ||
+            'Recommended country pending',
+          rankings,
+        }
+      : null,
     action_plan: {
       ...actionPlan,
       market_entry_timeline: actionPlan.market_entry_timeline || '90 days',
@@ -185,6 +230,11 @@ const normalizeReportForUi = (report) => {
       rank: partner.rank || index + 1,
       buying_signal_status: partner.buying_signal_status || (index < 2 ? 'warm' : 'cool'),
       company_size: partner.company_size || 'Size not disclosed',
+      city: partner.city || '',
+      what_they_are_replacing: partner.what_they_are_replacing || '',
+      why_they_might_say_no: partner.why_they_might_say_no || '',
+      how_to_overcome_it: partner.how_to_overcome_it || '',
+      reference_value: partner.reference_value || '',
       first_move:
         partner.first_move ||
         `Send a concise outreach note to ${partner.company_name} with a technical dossier and pilot proposal.`,
@@ -205,6 +255,9 @@ const normalizeReportForUi = (report) => {
       who_they_target: competitor.who_they_target || 'Western enterprise and channel buyers',
       positioning: competitor.positioning || 'Established Western-market competitor with stronger local trust.',
       pricing_signal: competitor.pricing_signal || null,
+      recent_news: competitor.recent_news || '',
+      customer_complaints: competitor.customer_complaints || '',
+      how_to_beat_them: competitor.how_to_beat_them || '',
       threat_level: competitor.threat_level || 'Medium',
     })),
     risk_assessment: (report.risk_assessment || []).map((risk, index) => ({
@@ -234,7 +287,13 @@ const fetchReport = async (formData) => {
     throw new Error('Incomplete report received - try again');
   }
 
-  return normalizeReportForUi({ ...data, _meta: { source: 'ai', endpoint: 'supabase-functions' } });
+  return normalizeReportForUi({
+    ...data,
+    _meta: {
+      ...(data._meta || {}),
+      endpoint: 'supabase-functions',
+    },
+  });
 };
 
 export default function App() {
@@ -410,7 +469,7 @@ export default function App() {
       return <RiskSection risks={matches.risk_assessment || []} />;
     }
 
-    return <MatchesSection partners={matches.icp_matches || []} onEmail={openEmail} />;
+    return <MatchesSection report={matches} partners={matches.icp_matches || []} onEmail={openEmail} />;
   };
 
   return (
@@ -618,7 +677,20 @@ function ProfileForm({ formData, setFormData, loading, matches, onGenerate }) {
   const score = clamp(matches?.company_summary?.market_readiness_score || 0);
   const animatedScore = useCounter(score);
 
-  const setField = (field, value) => setFormData((current) => ({ ...current, [field]: value }));
+  const setField = (field, value) => {
+    setFormData((current) => {
+      if (field === 'target_continent') {
+        return {
+          ...current,
+          target_continent: value,
+          target_market: value,
+          target_country: 'recommend',
+        };
+      }
+
+      return { ...current, [field]: value };
+    });
+  };
 
   return (
     <form className="bm-panel bm-profile-form" onSubmit={onGenerate}>
@@ -654,8 +726,8 @@ function ProfileForm({ formData, setFormData, loading, matches, onGenerate }) {
       </Field>
 
       <div className="bm-field-grid">
-        <Field label="Target Market">
-          <select value={formData.target_market} onChange={(event) => setField('target_market', event.target.value)}>
+        <Field label="Target Continent">
+          <select value={formData.target_continent || formData.target_market} onChange={(event) => setField('target_continent', event.target.value)}>
             {MARKETS.map((market) => (
               <option key={market}>{market}</option>
             ))}
@@ -670,6 +742,18 @@ function ProfileForm({ formData, setFormData, loading, matches, onGenerate }) {
           </select>
         </Field>
       </div>
+
+      {(formData.target_continent || formData.target_market) !== 'Both' && (
+        <Field label="Target Country">
+          <select value={formData.target_country || 'recommend'} onChange={(event) => setField('target_country', event.target.value)}>
+            {COUNTRIES[formData.target_continent || formData.target_market || 'Europe'].map((country) => (
+              <option key={country} value={country === 'Let AI Recommend' ? 'recommend' : country}>
+                {country}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <Field label="Sector">
         <select value={formData.sector} onChange={(event) => setField('sector', event.target.value)}>
@@ -786,9 +870,10 @@ function SummaryCard({ summary }) {
   );
 }
 
-function MatchesSection({ partners, onEmail }) {
+function MatchesSection({ report, partners, onEmail }) {
   return (
     <section className="bm-section">
+      <CountryIntelligencePanel report={report} />
       <div className="bm-section-heading compact">
         <span>Partner Matches</span>
         <h2>Vetted ICP Targets</h2>
@@ -799,6 +884,158 @@ function MatchesSection({ partners, onEmail }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function CountryIntelligencePanel({ report }) {
+  const ranking = report?.country_ranking;
+  const overview = report?.market_overview;
+  const buyerPsychology = report?.buyer_psychology;
+  const distribution = report?.distribution_channels;
+  const regulatory = report?.regulatory_snapshot;
+
+  if (!ranking && !overview && !buyerPsychology && !distribution && !regulatory) return null;
+
+  const countries = [...(ranking?.rankings || [])].sort((a, b) => (b.overall_score || 0) - (a.overall_score || 0));
+
+  return (
+    <div className="bm-country-stack">
+      {ranking && (
+        <article className="bm-country-card">
+          <div className="bm-country-hero">
+            <div>
+              <span className="bm-label amber">Recommended Entry Point</span>
+              <h2>{ranking.recommended_country}</h2>
+              <p>{ranking.reasoning}</p>
+            </div>
+            {ranking.entry_advantage && (
+              <div className="bm-advantage">
+                <span>Key advantage</span>
+                <p>{ranking.entry_advantage}</p>
+              </div>
+            )}
+          </div>
+
+          {countries.length > 0 && (
+            <div className="bm-country-rankings">
+              <span className="bm-label">All Countries Ranked</span>
+              {countries.map((country, index) => (
+                <div className={`bm-country-row ${index === 0 ? 'is-top' : ''}`} key={`${country.country}-${index}`}>
+                  <div>
+                    <strong>{country.country}</strong>
+                    <span>{country.main_challenge || country.best_for || 'Market-entry fit scored by AI'}</span>
+                  </div>
+                  <div>
+                    <div className="bm-country-bar">
+                      <i style={{ '--target-width': `${clamp(country.overall_score)}%` }} />
+                    </div>
+                    <p>{country.one_line_verdict}</p>
+                  </div>
+                  <b>{clamp(country.overall_score)}</b>
+                </div>
+              ))}
+            </div>
+          )}
+        </article>
+      )}
+
+      {(overview || buyerPsychology) && (
+        <div className="bm-live-grid">
+          {overview && (
+            <article className="bm-info-card bm-live-card">
+              <span className="bm-label">Live Market Overview</span>
+              <h3>{overview.target_country || ranking?.recommended_country || 'Target country'}</h3>
+              <dl className="bm-battlecard">
+                <div>
+                  <dt>Market size</dt>
+                  <dd>{overview.market_size || 'Pending live signal'}</dd>
+                </div>
+                <div>
+                  <dt>Growth rate</dt>
+                  <dd>{overview.growth_rate || 'Pending live signal'}</dd>
+                </div>
+                <div>
+                  <dt>Key trend</dt>
+                  <dd>{overview.key_trend || 'Trend analysis pending'}</dd>
+                </div>
+                <div>
+                  <dt>Sales cycle</dt>
+                  <dd>{overview.typical_sales_cycle || 'Not estimated'}</dd>
+                </div>
+              </dl>
+              {overview.urgency_signal && (
+                <div className="bm-first-move">
+                  <span>Urgency Signal</span>
+                  <p>{overview.urgency_signal}</p>
+                </div>
+              )}
+            </article>
+          )}
+
+          {buyerPsychology && (
+            <article className="bm-info-card bm-live-card">
+              <span className="bm-label">Buyer Psychology</span>
+              <h3>Trust Strategy</h3>
+              {buyerPsychology.primary_fear && <p className="bm-risk-description">{buyerPsychology.primary_fear}</p>}
+              <div className="bm-mini-list">
+                {(buyerPsychology.trust_builders || []).slice(0, 3).map((item) => (
+                  <span key={item}>{item}</span>
+                ))}
+              </div>
+              {buyerPsychology.winning_pitch_angle && (
+                <div className="bm-first-move">
+                  <span>Winning Angle</span>
+                  <p>{buyerPsychology.winning_pitch_angle}</p>
+                </div>
+              )}
+            </article>
+          )}
+        </div>
+      )}
+
+      {(distribution || regulatory) && (
+        <div className="bm-live-grid">
+          {distribution && (
+            <article className="bm-info-card bm-live-card">
+              <span className="bm-label">Distribution Channel</span>
+              <h3>{distribution.recommended_channel || 'Recommended route'}</h3>
+              <p className="bm-risk-description">{distribution.reasoning}</p>
+              <div className="bm-mini-list">
+                {(distribution.top_partners || []).slice(0, 3).map((partner, index) => (
+                  <span key={`${partner.type}-${index}`}>{partner.type}: {partner.examples}</span>
+                ))}
+              </div>
+              {distribution.time_to_first_revenue && (
+                <div className="bm-first-move">
+                  <span>Time to revenue</span>
+                  <p>{distribution.time_to_first_revenue}</p>
+                </div>
+              )}
+            </article>
+          )}
+
+          {regulatory && (
+            <article className="bm-info-card bm-live-card">
+              <span className="bm-label">Regulatory Snapshot</span>
+              <h3>Certification Path</h3>
+              <div className="bm-mini-list">
+                {(regulatory.certifications || []).slice(0, 4).map((cert) => (
+                  <span key={cert.name}>
+                    {cert.name}: {cert.timeline || cert.priority || 'Validate timing'}
+                  </span>
+                ))}
+              </div>
+              {regulatory.biggest_risk && (
+                <div className="bm-first-move">
+                  <span>Biggest risk</span>
+                  <p>{regulatory.biggest_risk}</p>
+                </div>
+              )}
+            </article>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -824,7 +1061,9 @@ function MatchCard({ partner, index, onEmail }) {
             )}
           </div>
           <p>
-            {partner.country || 'Western market'} - {partner.sector || 'Sector'} - {partner.company_size || 'Company size n/a'}
+            {[partner.city, partner.country || 'Western market', partner.sector || 'Sector', partner.company_size || 'Company size n/a']
+              .filter(Boolean)
+              .join(' - ')}
           </p>
         </div>
         <div className="bm-match-score">
@@ -864,6 +1103,35 @@ function MatchCard({ partner, index, onEmail }) {
         <div className="bm-first-move">
           <span>First move</span>
           <p>{partner.first_move}</p>
+        </div>
+      )}
+
+      {(partner.what_they_are_replacing || partner.why_they_might_say_no || partner.how_to_overcome_it || partner.reference_value) && (
+        <div className="bm-match-detail-grid">
+          {partner.what_they_are_replacing && (
+            <div>
+              <span>Replacing</span>
+              <p>{partner.what_they_are_replacing}</p>
+            </div>
+          )}
+          {partner.why_they_might_say_no && (
+            <div>
+              <span>Objection</span>
+              <p>{partner.why_they_might_say_no}</p>
+            </div>
+          )}
+          {partner.how_to_overcome_it && (
+            <div>
+              <span>Counter</span>
+              <p>{partner.how_to_overcome_it}</p>
+            </div>
+          )}
+          {partner.reference_value && (
+            <div>
+              <span>Reference value</span>
+              <p>{partner.reference_value}</p>
+            </div>
+          )}
         </div>
       )}
     </article>
@@ -948,6 +1216,28 @@ function CompetitorSection({ competitors }) {
               <span>Exploit this gap</span>
               <p>{competitor.weakness}</p>
             </div>
+            {(competitor.recent_news || competitor.customer_complaints || competitor.how_to_beat_them) && (
+              <div className="bm-match-detail-grid">
+                {competitor.recent_news && (
+                  <div>
+                    <span>Recent signal</span>
+                    <p>{competitor.recent_news}</p>
+                  </div>
+                )}
+                {competitor.customer_complaints && (
+                  <div>
+                    <span>Complaint pattern</span>
+                    <p>{competitor.customer_complaints}</p>
+                  </div>
+                )}
+                {competitor.how_to_beat_them && (
+                  <div>
+                    <span>How to beat them</span>
+                    <p>{competitor.how_to_beat_them}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </article>
         ))}
       </div>
@@ -986,10 +1276,32 @@ function ActionPlanSection({ actionPlan }) {
                 <p>
                   <strong>Milestone:</strong> {week.milestone}
                 </p>
+                {(week.cost_estimate || week.key_contact_type) && (
+                  <p>
+                    {week.cost_estimate && (
+                      <>
+                        <strong>Cost:</strong> {week.cost_estimate}
+                      </>
+                    )}
+                    {week.cost_estimate && week.key_contact_type ? ' - ' : ''}
+                    {week.key_contact_type && (
+                      <>
+                        <strong>Contact:</strong> {week.key_contact_type}
+                      </>
+                    )}
+                  </p>
+                )}
               </div>
             </article>
           ))}
         </div>
+
+        {actionPlan?.critical_path && (
+          <div className="bm-first-move">
+            <span>Critical Path</span>
+            <p>{actionPlan.critical_path}</p>
+          </div>
+        )}
 
         <div className="bm-tomorrow">
           <span>Do This Tomorrow</span>
@@ -1029,6 +1341,22 @@ function RiskSection({ risks }) {
                 <span>Mitigation</span>
                 <p>{risk.mitigation}</p>
               </div>
+              {(risk.early_warning_sign || risk.timeline_to_impact) && (
+                <div className="bm-match-detail-grid">
+                  {risk.early_warning_sign && (
+                    <div>
+                      <span>Early warning</span>
+                      <p>{risk.early_warning_sign}</p>
+                    </div>
+                  )}
+                  {risk.timeline_to_impact && (
+                    <div>
+                      <span>Timeline impact</span>
+                      <p>{risk.timeline_to_impact}</p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="bm-cost">
                 <ShieldAlert size={14} />
                 <span>Cost of ignoring: {risk.cost_of_ignoring}</span>
