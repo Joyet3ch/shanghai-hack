@@ -976,34 +976,83 @@ const normalizeReport = (report: any, profile: Profile, partners: Partner[]) => 
       "Position the offer as a lower-risk pilot with measurable economics, documented compliance path, and faster customization.",
   };
 
+  const distributionPartnerFallbacks = [
+    { type: "Specialist distributor", examples: `Country-specific ${profile.sector} distributors`, why: "Fastest route into existing demand." },
+    { type: "System integrator", examples: "Installation and engineering partners", why: "Reduces implementation risk for buyers." },
+    { type: "Reference customer", examples: "One visible early adopter", why: "Creates proof for the next wave of outreach." },
+  ];
+
+  const certificationFallbacks = [
+    {
+      name: "Primary safety certification review",
+      mandatory: true,
+      timeline: "Validate scope and timing with an accredited local lab",
+      cost: "Advisor-dependent",
+      body: "Local accredited test lab",
+      priority: "Immediate",
+    },
+    {
+      name: "Installation and grid-compliance check",
+      mandatory: true,
+      timeline: "Confirm before pilot launch",
+      cost: "Advisor-dependent",
+      body: "Local authority or accredited lab",
+      priority: "Before Launch",
+    },
+    {
+      name: "Transport, labeling, and documentation package",
+      mandatory: true,
+      timeline: "Confirm before first shipment",
+      cost: "Documentation-dependent",
+      body: "Importer or compliance advisor",
+      priority: "Before Launch",
+    },
+    {
+      name: "Warranty and importer documentation review",
+      mandatory: false,
+      timeline: "Complete during commercial setup",
+      cost: "Low to medium",
+      body: "Local legal or compliance advisor",
+      priority: "Within 12 Months",
+    },
+  ];
+
+  const distributionSource = Array.isArray(report?.distribution_channels?.top_partners)
+    ? report.distribution_channels.top_partners.slice(0, 3)
+    : [];
+  const certificationSource = Array.isArray(report?.regulatory_snapshot?.certifications)
+    ? report.regulatory_snapshot.certifications.slice(0, 4)
+    : [];
+
   const distribution_channels = {
     recommended_channel: report?.distribution_channels?.recommended_channel || "Specialized distributor or system integrator first",
     reasoning:
       report?.distribution_channels?.reasoning ||
       "A local channel partner compresses trust-building, reduces support anxiety, and gives the startup access to qualified end buyers.",
-    top_partners: Array.isArray(report?.distribution_channels?.top_partners)
-      ? report.distribution_channels.top_partners.slice(0, 3)
-      : [
-        { type: "Distributor", examples: `Country-specific ${profile.sector} distributors`, why: "Fastest path to existing buyer demand." },
-        { type: "System integrator", examples: "Installation and integration partners", why: "Reduces implementation risk for enterprise buyers." },
-        { type: "Reference customer", examples: "One visible early adopter", why: "Creates credibility for the next ten accounts." },
-      ],
+    top_partners: distributionPartnerFallbacks.map((fallback, index) => {
+      const partner = distributionSource[index] || {};
+      return {
+        type: partner.type || fallback.type,
+        examples: partner.examples || fallback.examples,
+        why: partner.why || fallback.why,
+      };
+    }),
     time_to_first_revenue: report?.distribution_channels?.time_to_first_revenue || "90-180 days after qualified partner validation.",
   };
 
   const regulatory_snapshot = {
-    certifications: Array.isArray(report?.regulatory_snapshot?.certifications)
-      ? report.regulatory_snapshot.certifications.slice(0, 4)
-      : [
-        {
-          name: "Country-specific compliance review",
-          mandatory: true,
-          timeline: "2-6 weeks to scope before outreach",
-          cost: "Advisor-dependent",
-          body: "Local certification advisor or accredited test lab",
-          priority: "Immediate",
-        },
-      ],
+    certifications: certificationFallbacks.map((fallback, index) => {
+      const cert = certificationSource[index] || {};
+      return {
+        ...fallback,
+        ...cert,
+        name: cert.name || fallback.name,
+        timeline: cert.timeline || fallback.timeline,
+        cost: cert.cost || fallback.cost,
+        body: cert.body || fallback.body,
+        priority: cert.priority || fallback.priority,
+      };
+    }),
     biggest_risk:
       report?.regulatory_snapshot?.biggest_risk ||
       "Starting partner outreach before proving the compliance path can create avoidable trust loss.",

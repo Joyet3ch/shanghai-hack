@@ -975,10 +975,24 @@ p {
 }
 
 .bm-mini-list span {
+  display: grid;
+  gap: 3px;
   padding: 8px 10px;
   border: 0.5px solid var(--border);
   border-radius: 8px;
   background: var(--bg-secondary);
+}
+
+.bm-mini-list strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.bm-mini-list em {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
 }
 
 .bm-match-list,

@@ -183,6 +183,51 @@ const ACTION_FALLBACKS = [
   'Package a low-risk pilot offer with technical dossier, support SLA, warranty terms, and success metrics.',
 ];
 
+const DISTRIBUTION_PARTNER_FALLBACKS = [
+  {
+    type: 'Specialist distributor',
+    examples: 'Country-specific distributors already serving the target buyer segment',
+    why: 'Fastest route into existing demand without building a full local sales force first.',
+  },
+  {
+    type: 'System integrator',
+    examples: 'Installers or engineering partners that can bundle the product into a complete solution',
+    why: 'Reduces buyer risk and makes technical adoption easier.',
+  },
+  {
+    type: 'Reference customer',
+    examples: 'One visible early adopter with strong local credibility',
+    why: 'Creates proof that unlocks the next wave of partner conversations.',
+  },
+];
+
+const CERTIFICATION_FALLBACKS = [
+  {
+    name: 'Primary safety certification review',
+    mandatory: true,
+    timeline: 'Validate scope and timing with an accredited local lab',
+    priority: 'Immediate',
+  },
+  {
+    name: 'Installation and grid-compliance check',
+    mandatory: true,
+    timeline: 'Confirm before pilot launch',
+    priority: 'Before Launch',
+  },
+  {
+    name: 'Transport, labeling, and documentation package',
+    mandatory: true,
+    timeline: 'Confirm before first shipment',
+    priority: 'Before Launch',
+  },
+  {
+    name: 'Warranty and importer documentation review',
+    mandatory: false,
+    timeline: 'Complete during commercial setup',
+    priority: 'Within 12 Months',
+  },
+];
+
 const normalizeWeeksForUi = (weeks) => {
   const source = weeks.length ? weeks : [
     {
@@ -223,6 +268,53 @@ const normalizeWeeksForUi = (weeks) => {
     key_contact_type: week.key_contact_type || '',
   }));
 };
+
+const normalizeDistributionForUi = (distribution = {}) => ({
+  ...distribution,
+  recommended_channel: withFallbackText(distribution.recommended_channel, 'Specialist distributor or system integrator first'),
+  reasoning: withFallbackText(
+    distribution.reasoning,
+    'A local channel partner compresses trust-building, reduces support anxiety, and gives access to qualified buyers faster than direct entry.',
+  ),
+  top_partners: ensureList(distribution.top_partners, DISTRIBUTION_PARTNER_FALLBACKS, 3)
+    .slice(0, 3)
+    .map((partner, index) => {
+      const fallback = DISTRIBUTION_PARTNER_FALLBACKS[index] || DISTRIBUTION_PARTNER_FALLBACKS[0];
+      return {
+        type: withFallbackText(partner?.type, fallback.type),
+        examples: withFallbackText(partner?.examples, fallback.examples),
+        why: withFallbackText(partner?.why, fallback.why),
+      };
+    }),
+  time_to_first_revenue: withFallbackText(
+    distribution.time_to_first_revenue,
+    '90-180 days after one qualified local partner is secured.',
+  ),
+});
+
+const normalizeRegulatoryForUi = (regulatory = {}) => ({
+  ...regulatory,
+  certifications: ensureList(regulatory.certifications, CERTIFICATION_FALLBACKS, 4)
+    .slice(0, 4)
+    .map((cert, index) => {
+      const fallback = CERTIFICATION_FALLBACKS[index] || CERTIFICATION_FALLBACKS[0];
+      return {
+        ...fallback,
+        ...cert,
+        name: withFallbackText(cert?.name, fallback.name),
+        timeline: withFallbackText(cert?.timeline, fallback.timeline),
+        priority: withFallbackText(cert?.priority, fallback.priority),
+      };
+    }),
+  biggest_risk: withFallbackText(
+    regulatory.biggest_risk,
+    'Starting serious partner outreach before the compliance path is credible can stall trust immediately.',
+  ),
+  timeline_impact: withFallbackText(
+    regulatory.timeline_impact,
+    'Late discovery of missing certifications can add months to procurement and pilot conversion.',
+  ),
+});
 
 const normalizeReportForUi = (report) => {
   if (!report) return report;
@@ -266,6 +358,8 @@ const normalizeReportForUi = (report) => {
         },
       ].filter(Boolean);
   const normalizedWeeks = normalizeWeeksForUi(weeks);
+  const distributionChannels = normalizeDistributionForUi(report.distribution_channels);
+  const regulatorySnapshot = normalizeRegulatoryForUi(report.regulatory_snapshot);
 
   return {
     ...report,
@@ -292,6 +386,8 @@ const normalizeReportForUi = (report) => {
         normalizedWeeks[0]?.actions?.[0] ||
         'Validate the first partner target and compliance blocker before broad outreach.',
     },
+    distribution_channels: distributionChannels,
+    regulatory_snapshot: regulatorySnapshot,
     icp_matches: (report.icp_matches || []).map((partner, index) => ({
       ...partner,
       rank: partner.rank || index + 1,
@@ -1117,7 +1213,11 @@ function CountryIntelligencePanel({ report }) {
               <p className="bm-risk-description">{distribution.reasoning}</p>
               <div className="bm-mini-list">
                 {(distribution.top_partners || []).slice(0, 3).map((partner, index) => (
-                  <span key={`${partner.type}-${index}`}>{partner.type}: {partner.examples}</span>
+                  <span key={`${partner.type}-${index}`}>
+                    <strong>{partner.type}</strong>
+                    {partner.examples}
+                    {partner.why && <em>{partner.why}</em>}
+                  </span>
                 ))}
               </div>
               {distribution.time_to_first_revenue && (
@@ -1136,7 +1236,8 @@ function CountryIntelligencePanel({ report }) {
               <div className="bm-mini-list">
                 {(regulatory.certifications || []).slice(0, 4).map((cert) => (
                   <span key={cert.name}>
-                    {cert.name}: {cert.timeline || cert.priority || 'Validate timing'}
+                    <strong>{cert.name}</strong>
+                    {cert.timeline || cert.priority || 'Validate timing'}
                   </span>
                 ))}
               </div>
